@@ -1,0 +1,488 @@
+#!/usr/bin/perl
+
+=for readme
+
+WHY fzfm?
+
+    This was never meant to be a serious project.
+
+    It was started as a tongue-in-cheek effort at answering a hypothetical
+    question: what would I do if a certain file manager (let's call it
+    "141414" for now) was the only FM in the world and all other FMs had
+    disappeared.  This fm is shilled by people who appear not to understand
+    what "run any ad hoc or arbitrary command" means (hint: pre-configured
+    commands like cp or mv don't count).  Not to mention some questionable
+    design decisions that make sense on a 20-year old computer but not what we
+    have today.
+
+    Anyway, after a <dramatic shudder> at that apocalyptic scenario, I joked
+    that I'd write one that is "good enough for my needs" using fzf as a base.
+    (I'm a *huge* fan of fzf!)
+
+    This is the result.
+
+    WARNING: it has some quirks due to using fzf underneath.  For example, you
+    can't have commands using printable characters -- because that is reserved
+    for fzf's fuzzy matching, so everything uses control+key,
+
+    But it was fun to write, and to see what you can do with fzf and about 250
+    lines of perl :-)
+
+FEATURES/ROADMAP
+
+    Funnily enough for something that started as a joke, I find I'm actually
+    using it for real sometimes, mainly because it learns my most frequently
+    used commands and file selectors.
+
+    Despite that, I don't have a roadmap as such, though I might add the odd
+    cool feature as and when I find time and if it's easy enough to implement.
+    It'll never compete with the big ones though, and definitely not with
+    vifm.  (And remember, for *me* it'll always be better than 141414 !)
+
+    Features wise... well fuzzy file selection is obviously useful, but
+    there's also fuzzy selection of commands to be executed, and fuzzy
+    selection of commands that *produce* the file list!  It comes with
+    pre-defined commands that show you, say, all "git ignored" files, or all
+    empty directories, and many more.
+
+    Best of all, as you use them (both "commands to be executed on selected
+    files" and "commands that produce the file list shown"), they are
+    remembered, and counted, and each time you get a list sorted by most
+    frequently used to least frequently used.  So it's basically learning your
+    favourite commands as it goes.
+
+    And in the process, it's doing away with the concept of a config file in
+    which you'd define commands to be run.
+
+
+=cut
+
+=for help
+
+Keys that ignore the query string and selection:
+
+    escape                      exit fzfm (to previous fzfm or shell)
+
+Keys that act on the current file/dir:
+
+    enter                       run "fzfm" in directory, OR run "xdg-open" on file
+
+Keys that act on the selection (or current file/dir if no selections were made):
+
+    ctrl-d                      delete selected files/dirs files using "rm -ir"
+                                note the "-i"
+    ctrl-alt-d                  same, but using "rm -r".  It takes 3
+                                keystrokes so I assume this won't happen
+                                accidentally!
+                **NOTE**: you have to manually reload after this; see crtl-r below
+
+Keys that act directly on the query string:
+
+    ctrl-r                      (re-)set file selection and reload file list
+
+                                When you hit ctrl-r, a different fzf chooser
+                                shows up, with file selection commands to pick
+                                from.  You'll find more instructions there.
+
+    ctrl-x                      eXecute command
+
+                                Pick some files, then hit ctrl-x.  This opens
+                                up a different fzf chooser, with commands you
+                                can run.  You'll find more instructions there.
+
+
+=cut
+
+=for commands
+@vim
+@gvim
+@gvim -f
+@sha256sum
+@pqiv -n
+tar tvf
+ncdu -e
+=cut
+
+=for filesel_commands
+: any depth _______________________________________ ; fd
+: any depth, +hidden +ignored _____________________ ; fd -HI
+: this directory only _____________________________ ; fd -d 1
+: this directory, +hidden +ignored ________________ ; fd -HI -d 1
+: any depth, directories only _____________________ ; fd -t d
+: any depth, files only ___________________________ ; fd -t f
+: this directory, sort by size descending _________ ; fd -d 1 -0 | xargs -0 du -sk | sort -rn | cut -f2
+: any depth, files only, sort by size descending __ ; find . -type f -printf "%s\t%p\n" | sort -nr | cut -f2
+: empty files _____________________________________ ; find . -type f -empty | sort
+: empty directories _______________________________ ; find . -type d -empty | sort -r
+: git - all known files ___________________________ ; git ls-tree -r -t HEAD | cut -f2
+: git - deleted files _____________________________ ; git ls-files -d
+: git - deleted+changed files _____________________ ; git ls-files -m
+: git - new files _________________________________ ; git ls-files --exclude-standard -o
+: git - ignored files _____________________________ ; git ls-files --exclude-standard -o -i
+=cut
+
+# ----------------------------------------------------------------------
+
+use warnings;
+use strict;
+use 5.10.0;
+
+use Data::Dumper;
+use Cwd;
+
+# ----------------------------------------------------------------------
+
+my $tty=`tty`; chomp $tty;
+
+my $rst = color();
+my $red = color("red");
+my $blu = color("blue");
+
+$ENV{FZF_DEFAULT_COMMAND} = "fd -d 1";
+
+my $pick_mode_help = "This is a ${red}special command picker mode, where whatever is on the query line is used${rst}.
+- you can type a brand new command directly in the query area and hit enter
+- OR, you can select an existing command, hit ${red}ctrl-k${rst} to bring it up,
+  edit it if needed, and then hit enter
+";
+
+my $msg = '';
+my $query = '';
+
+# ----------------------------------------------------------------------
+# this section is conceptually separate from the rest of the program.  It
+# handles keys listed in "--bind" options.  The main fzfm (recursively) calls
+# fzfm with the key name as arg-1, because that's much cleaner than jamming
+# all the code needed into the option value!
+
+($ARGV[0]||'') eq '--internal-key-?' and help();
+($ARGV[0]||'') eq '--internal-key-alt-?' and readme();
+($ARGV[0]||'') eq '--internal-key-alt-s' and shell();
+
+if ( ($ARGV[0]||'') eq '--internal-key-ctrl-d' ) {
+    shift;
+    system("rm", "-ir", @ARGV);
+    exit;
+}
+if ( ($ARGV[0]||'') eq '--internal-key-ctrl-alt-d' ) {
+    shift;
+    system("rm", "-r", @ARGV);
+    exit;
+}
+
+if ( ($ARGV[0]||'') eq '--internal-key-ctrl-x' ) {
+    shift;
+    pick_cmd(@ARGV);
+    exit;
+}
+
+if ( ($ARGV[0]||'') eq '--internal-key-enter' ) {
+    shift;
+    my $cursor = shift;
+    if (-d $cursor) {
+        chdir $cursor;
+        exec $0;
+        # doesn't return
+    }
+    # run xdg-open.  Note that xo() will redirect STDERR so that those
+    # messages don't mess up the display
+    xo($cursor);
+    exit;
+}
+
+($ARGV[0]||'') =~ /^--internal-key-/ and exit;
+
+# ----------------------------------------------------------------------
+# this is the main loop.  Seed it by showing the main fzf picker, then act on
+# the results, ad infinitum (unless user hits "escape").
+
+chdir +shift() if @ARGV and -d $ARGV[0];
+
+my @ret = show();
+
+while (1) {
+    # first element in @ret is the query string, if any; second element is the key used (if it's not "enter")
+    $query = shift @ret;
+    my $key = shift @ret;
+    # what's left now in @ret is zero or more selected files, but note that
+    # this main loop does not actually use them -- all the things that act on
+    # selected files happen in sub-shells (see the "--bind" options in show()
+    # below).
+
+    # without a key, we have nothing to act on
+    next unless $key;
+
+    if ($key eq 'esc') {
+        exit;
+    }
+
+    if ($key eq 'ctrl-r') {
+        my $ret = pick_filesel();
+        $ret ||= '';
+        if ($ret eq '') {
+            $ENV{FZF_DEFAULT_COMMAND} = "fd -d 1";
+        } elsif ($ret =~ /^\d+$/) {
+            $ENV{FZF_DEFAULT_COMMAND} = "fd -d $ret";
+        } else {
+            $ENV{FZF_DEFAULT_COMMAND} = "$ret";
+        }
+
+        next;
+    }
+
+    if ($key eq 'ctrl-/') {
+        chdir "$query" or $msg = color(blue => "WARNING"). ": '$query' is not a valid directory";
+        next;
+    }
+
+    if ($key eq 'ctrl-t') {
+        $ENV{FZFM_TARGET} = getcwd();
+        next;
+    }
+
+} continue {
+    @ret = show();
+}
+
+sub show {
+
+    my $header = "'enter': open file or run fzfm in dir (see readme for more on this),
+'ctrl-/': cd to whatever is in the query field (e.g., type '..' then hit ctrl-/)
+'ctrl-k': bring current selection to query field (e.g., ctrl-k then ctrl-/ to cd)
+'escape': exit to previous fzfm or back to shell,
+'ctrl-a': toggle all,                   'ctrl-alt-a': unselect all,
+'alt-s': shell,                         '?': more commands,                     'alt-?': readme";
+    my $expect = "esc,ctrl-r,ctrl-/,ctrl-t";
+    my $preview = "ls -ald {};
+        printf \"$blu\"; file -b {};
+        env -u LANGUAGE LANG=en_US.utf8 printf \"${red}%'d kib${rst}\\n\" `du -sk {+} | cut -f1 | paste -sd+|bc`;
+        echo;
+        [[ -f {} ]] || ls -al {};
+        file -b {} | grep -q -i text && bat --color always {};
+    ";
+    my $preview_window="down";
+
+    $header = color(green => getcwd()) . "\n$header";
+    $header .= "\ntarget for copy/move: " . color(red => $ENV{FZFM_TARGET}) if $ENV{FZFM_TARGET};
+    $header .= "\n$msg" if $msg;
+    my @cmd = ("fzf",
+        "--print-query",
+
+        "--header", $header,
+        "--expect", $expect,
+        "--preview", $preview,
+        "--preview-window", $preview_window,
+        "--history", "$ENV{HOME}/.cache/fzfm-history",
+
+        # selected files, query field
+        "--bind", "ctrl-a:toggle-all",
+        "--bind", "ctrl-alt-a:deselect-all",
+        "--bind", "ctrl-k:replace-query",
+
+        # help and readme
+        "--bind", "?:execute(fzfm > $tty 2>&1 --internal-key-?)",
+        "--bind", "alt-?:execute(fzfm > $tty 2>&1 --internal-key-alt-?)",
+
+        # shell, run command, enter dir/open file
+        "--bind", "alt-s:execute(fzfm > $tty 2>&1 --internal-key-alt-s)",
+        "--bind", "ctrl-x:execute(fzfm > $tty 2>&1 --internal-key-ctrl-x {+})",
+        "--bind", "enter:execute(fzfm > $tty 2>&1 --internal-key-enter {})",
+
+        # delete files
+        "--bind", "ctrl-d:execute(fzfm > $tty 2>&1 --internal-key-ctrl-d {+})",
+        "--bind", "ctrl-alt-d:execute(fzfm > $tty 2>&1 --internal-key-ctrl-alt-d {+})",
+    );
+
+    $msg = '';  # clear any error that was shown in the prior "fzf" run
+
+    open(FZF, "-|", @cmd);
+    @ret = <FZF>;
+    close FZF;
+    chomp(@ret);
+
+    return @ret;
+}
+
+# ----------------------------------------------------------------------
+# fzf in sub-shell, to pick a command to run
+
+sub pick_cmd {
+
+    # the files that the user wants this command to operate on
+    my @selection = @_;
+
+    my $hist = "$ENV{HOME}/.cache/fzfm-run-history";
+    # populate the command history file with some nice sample commands if it
+    # does not already exist
+    populate_hist(commands => $hist) unless -f $hist;
+    # then make *this* instance of fzf operate on a "sorted by most frequenty
+    # used" list of whatever is in the history file
+    $ENV{FZF_DEFAULT_COMMAND} = "sort < $hist | uniq -c | sort -nr | cut -c9-";
+
+    my $header = "CHOOSE A COMMAND TO RUN
+
+$pick_mode_help
+- if there's no '%' in the command, one will be placed at the end
+- if the command starts with `\@`, it will be run only once, with the %
+  replaced by ALL the selected file/dir names.  Otherwise it will run once for
+  each selected file/dir.
+- hit escape to abort
+
+At the moment, only simple commands are supported -- i.e., no shell meta-characters
+
+";
+
+    $header .= "\n$msg" if $msg;
+    my @cmd = (
+        qw(fzf --print-query --header),
+        $header,
+        "--bind", "ctrl-k:replace-query",
+    );
+
+    open(FZF, "-|", @cmd);
+    my @ret = <FZF>;
+    close FZF;
+    chomp(@ret);
+
+    my $cmd = $ret[0] || '';
+    die "no command given" unless $cmd;
+
+    run_cmd($cmd, @selection);
+    system("echo '$cmd' >> $hist");
+}
+
+sub run_cmd {
+    my $cmd = shift;
+
+    $cmd .= " %" unless $cmd =~ /%/;
+
+    # change ~/, $FOO, and ${BAR}
+    $cmd =~ s( ~/ )( "$ENV{HOME}/" )xge;
+    $cmd =~ s( (?<!\\) \$(\w+) )( $ENV{$1} )xge;
+    $cmd =~ s( (?<!\\) \$\{(\w+)\} )( $ENV{$1} )xge;
+
+    my @selection = @_;
+
+    system("clear");
+    say STDERR "+$cmd";
+
+    my $multi = ( $cmd =~ s/^@// );
+
+    if ($multi) {
+        # note that in this case the % should be in a word by itself, otherwise it won't get substituted
+        my @cmd = split ' ', $cmd;
+        @cmd = map { /^%$/ ? (@selection) : ($_) } @cmd;
+        system(@cmd);
+    } else {
+        for my $s (@selection) {
+            my @cmd = split ' ', $cmd;
+                # (TODO) should probably use shellwords or something
+            @cmd = map { s/%/$s/; $_ } @cmd;
+            system(@cmd) and die "? = $?, ! = $!";
+        }
+    }
+
+    system(qw(bash -c), "read -p 'Press enter to continue...'");
+
+    return;
+}
+
+# ----------------------------------------------------------------------
+# fzf in sub-shell, to pick a file selector
+
+sub pick_filesel {
+
+    # see comments in pick_cmd; pretty much the same thing here but with a
+    # different history file
+    my $hist = "$ENV{HOME}/.cache/fzfm-filesel-history";
+    populate_hist(filesel_commands => $hist) unless -f $hist;
+    $ENV{FZF_DEFAULT_COMMAND} = "echo '$ENV{FZF_DEFAULT_COMMAND}'; sort < $hist | uniq -c | sort -nr | cut -c9-";
+
+    my $header = "CHOOSE A FILE SELECTOR
+
+$pick_mode_help
+- the first line will always be your current selection
+- the built-in selections have a nice comment before them
+  - note especially the one about empty directories
+  - it is sorted descending so you can select and delete all with ctrl-a then ctrl-alt-d
+";
+
+    my @cmd = (
+        qw(fzf --print-query --header),
+        $header,
+        "--bind", "ctrl-k:replace-query",
+    );
+
+    open(FZF, "-|", @cmd);
+    my @ret = <FZF>;
+    close FZF;
+    chomp(@ret);
+
+    my $cmd = $ret[0] || '';
+    if ($cmd) {
+        system("echo '$cmd' >> $hist");
+        return $cmd;
+    }
+    $msg = color(blue => "WARNING"). ": no file selector picked, going back to default";
+    return "";
+}
+
+# ----------------------------------------------------------------------
+
+sub populate_hist {
+    my $for = shift;
+    my $hist = shift;
+
+    system("sed -ne '/^=for $for/,/^=cut/p' < $0 | grep -v '^=' > $hist");
+}
+
+sub xo {
+    return if fork();
+    open(STDERR, ">", "$ENV{HOME}/.cache/fzfm-xo-errors");
+    system("xdg-open", $_[0]);
+    close STDERR;
+    exit;
+}
+
+# allows 3 modes of use: color("red", "text"), color("red") to produce only start code, color() to produce only the reset code
+sub color {
+    my $rst="\e[m";
+    return $rst unless @_;
+
+    my $c = shift;
+    my %map = (red => 31, green => 32, blue => 34);
+
+    return "\e[1;" . $map{$c} . "m" . $_[0] . $rst if @_;
+    return "\e[1;" . $map{$c} . "m";
+}
+
+sub shell {
+    system($ENV{SHELL} || 'bash');
+}
+
+sub help {
+    local @ARGV = ($0);
+    my $x;
+    open(LESS, "|-", "less -cr");
+    while (<>) {
+        next unless /^=for help/../^=cut/;
+        next if /^=/;
+        s/^(    \S.{27})/color(green => $1)/e;
+        print LESS;
+    }
+    close LESS;
+}
+
+sub readme {
+    local @ARGV = ($0);
+    my $x;
+    open(LESS, "|-", "less -cr");
+    while (<>) {
+        next unless /^=for readme/../^=cut/;
+        next if /^=/;
+        # s/^(    \S.{27})/color(green => $1)/e;
+        print LESS;
+    }
+    close LESS;
+}
+
