@@ -222,7 +222,7 @@ while (1) {
         if ($ret eq '') {
             $ENV{FZF_DEFAULT_COMMAND} = "fd -d 1";
         } elsif ($ret =~ /^\d+$/) {
-            $ENV{FZF_DEFAULT_COMMAND} = "fd -HI -d $ret";
+            $ENV{FZF_DEFAULT_COMMAND} = "fd -HI -d $ret | sort";
         } else {
             $ENV{FZF_DEFAULT_COMMAND} = "$ret";
         }
@@ -405,7 +405,8 @@ $pick_mode_help
 - the built-in selections have a nice comment before them
   - note especially the one about empty directories
   - it is sorted descending so you can select and delete all with ctrl-a then ctrl-alt-d
-- typing a number N and hitting enter will be taken as 'fd -HI -d N', for any N
+- typing a number N and hitting enter will be taken as 'fd -HI -d N | sort', for any N
+- TIP: you may want to add a '|sort' to the fd commands if you prefer that
 ";
 
     my @cmd = (
