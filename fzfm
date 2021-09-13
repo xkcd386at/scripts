@@ -54,6 +54,20 @@ FEATURES/ROADMAP
     And in the process, it's doing away with the concept of a config file in
     which you'd define commands to be run.
 
+QUIRKS
+
+    -   One quirk is that when you hit enter on a directory, it opens up
+        another instance of fzfm as a child process.  I need it this way
+        because I want selections to be retained when I come back (this is the
+        only thing I don't like about vifm -- you lose selections if you
+        change directory and come back).
+
+        The downside is that to exit to shell, you may have to hit 'escape'
+        more than once.
+
+        Note that if you hit ctrl-k then ctrl-/, this does not happen.  The
+        *current* instance of fzfm changes directory, so you can always do
+        that if you prefer.
 
 =cut
 
