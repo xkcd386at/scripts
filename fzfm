@@ -147,6 +147,7 @@ use Cwd;
 # ----------------------------------------------------------------------
 
 my $tty=`tty`; chomp $tty;
+my $fzfm = $0;
 
 my $rst = color();
 my $red = color("red");
@@ -294,17 +295,17 @@ sub show {
         "--bind", "ctrl-k:replace-query",
 
         # help and readme
-        "--bind", "?:execute(fzfm > $tty 2>&1 --internal-key-?)",
-        "--bind", "alt-?:execute(fzfm > $tty 2>&1 --internal-key-alt-?)",
+        "--bind", "?:execute($fzfm > $tty 2>&1 --internal-key-?)",
+        "--bind", "alt-?:execute($fzfm > $tty 2>&1 --internal-key-alt-?)",
 
         # shell, run command, enter dir/open file
-        "--bind", "alt-s:execute(fzfm > $tty 2>&1 --internal-key-alt-s)",
-        "--bind", "ctrl-x:execute(fzfm > $tty 2>&1 --internal-key-ctrl-x {+})",
-        "--bind", "enter:execute(fzfm > $tty 2>&1 --internal-key-enter {})",
+        "--bind", "alt-s:execute($fzfm > $tty 2>&1 --internal-key-alt-s)",
+        "--bind", "ctrl-x:execute($fzfm > $tty 2>&1 --internal-key-ctrl-x {+})",
+        "--bind", "enter:execute($fzfm > $tty 2>&1 --internal-key-enter {})",
 
         # delete files
-        "--bind", "ctrl-d:execute(fzfm > $tty 2>&1 --internal-key-ctrl-d {+})",
-        "--bind", "ctrl-alt-d:execute(fzfm > $tty 2>&1 --internal-key-ctrl-alt-d {+})",
+        "--bind", "ctrl-d:execute($fzfm > $tty 2>&1 --internal-key-ctrl-d {+})",
+        "--bind", "ctrl-alt-d:execute($fzfm > $tty 2>&1 --internal-key-ctrl-alt-d {+})",
     );
 
     $msg = '';  # clear any error that was shown in the prior "fzf" run
