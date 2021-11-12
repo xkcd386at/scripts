@@ -15,11 +15,11 @@ export PS4=':.$LINENO:'
 #     then run:   bf-helper-create+rotate "$datasubv" 4 12 4 5 6
 #         ("$datasubv" is a btrfs subvolume you want to snapshot+rotate)
 # this will "keep" 4 yrs, 12 mths, 4 wks, 5 days, 6 hrs of snapshots named like:
-#     .snapshots/$datasubv/2021             (year)
-#     .snapshots/$datasubv/2021-11          (month)
-#     .snapshots/$datasubv/2021-W44         (week)
-#     .snapshots/$datasubv/2021-11-06       (day)
-#     .snapshots/$datasubv/2021-11-06-13    (hour)
+#     .snapshots/$datasubv/Y-2021             (year)
+#     .snapshots/$datasubv/M-2021-11          (month)
+#     .snapshots/$datasubv/W-2021-44          (week)
+#     .snapshots/$datasubv/D-2021-11-06       (day)
+#     .snapshots/$datasubv/H-2021-11-06-13    (hour)
 #
 # this logic is geared to laptops with unpredictable "on" times
 #
@@ -28,7 +28,7 @@ export PS4=':.$LINENO:'
 #
 # similarly for weekly, monthly, etc.  (e.g., if you went on vacation from 15
 # Dec 2021, to 2 Jan 2022, then the monthly for December, *and* the "yearly"
-# for 2021, will be the last snapshot taken on Dec 14
+# for 2021, will be the last snapshot taken on Dec 14)
 #
 # you can even run one manually if you're done for the day and don't want to
 # wait for the next cron run; just don't forget the parameters!
@@ -55,17 +55,17 @@ _mkss() {
 if [[ -d .snapshots/$dir/last ]]; then
     # the last snapshot was created at...
     IFS=- read ly lm lw ld lh <<< $(cd .snapshots/$dir/last; ls)
-    [[ $ly == $y  ]] || _mkss $ly             "20??"          $ky
-    [[ $lm == $m  ]] || _mkss $ly-$lm         "20??-??"       $km
-    [[ $lw == W$w ]] || _mkss $ly-$lw         "20??-W??"      $kw
-    [[ $ld == $d  ]] || _mkss $ly-$lm-$ld     "20??-??-??"    $kd
-    [[ $lh == $h  ]] || _mkss $ly-$lm-$ld-$lh "20??-??-??-??" $kh
+    [[ $ly == $y  ]] || _mkss Y-$ly             "Y-*" $ky
+    [[ $lm == $m  ]] || _mkss M-$ly-$lm         "M-*" $km
+    [[ $lw == $w  ]] || _mkss W-$ly-$lw         "W-*" $kw
+    [[ $ld == $d  ]] || _mkss D-$ly-$lm-$ld     "D-*" $kd
+    [[ $lh == $h  ]] || _mkss H-$ly-$lm-$ld-$lh "H-*" $kh
     btrfs subvolume delete -v -C .snapshots/$dir/last/*
 else
     mkdir -p .snapshots/$dir/last
 fi
 
-next=.snapshots/$dir/last/$y-$m-W$w-$d-$h
+next=.snapshots/$dir/last/$y-$m-$w-$d-$h
 
 # if you ever run the program more than once in a given hour (e.g., manually
 # before shutting down), the $next will already be present.  We need to
