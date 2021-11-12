@@ -1,0 +1,67 @@
+#!/bin/bash
+
+shopt -s inherit_errexit
+set -euo pipefail
+IFS=$'\n\t'
+# set -x
+export PS4=':.$LINENO:'
+
+[[ -d .snapshots ]] || { echo >&2 "can't find .snapshots directory"; exit 1; }
+data=${1:?missing argument}
+
+# btrfs create a snapshot then rotate all of them per parameters
+#
+# Usage by example:
+#     cd somewhere in a btrfs FS, which contains a ".snapshots" subd
+#     then run:   bf-helper-create+rotate "$datasubv" 4 12 4 5 6
+#         ("$datasubv" is a btrfs subvolume you want to snapshot+rotate)
+# this will "keep" 4 yrs, 12 mths, 4 wks, 5 days, 6 hrs of snapshots named like:
+#     .snapshots/$datasubv/2021             (year)
+#     .snapshots/$datasubv/2021-11          (month)
+#     .snapshots/$datasubv/2021-W44         (week)
+#     .snapshots/$datasubv/2021-11-06       (day)
+#     .snapshots/$datasubv/2021-11-06-13    (hour)
+#
+# this logic is geared to laptops with unpredictable "on" times
+#
+# you simply set it to run hourly, and whatever time you knock off work, the
+# last one just before that becomes that day's "daily"
+#
+# similarly for weekly, monthly, etc.  (e.g., if you went on vacation from 15
+# Dec 2021, to 2 Jan 2022, then the monthly for December, *and* the "yearly"
+# for 2021, will be the last snapshot taken on Dec 14
+#
+# you can even run one manually if you're done for the day and don't want to
+# wait for the next cron run; just don't forget the parameters!
+
+# ----------------------------------------------------------------------
+
+# data directory and "keep" numbers
+dir=$1; shift
+keep="$@"
+IFS=' ' read ky km kw kd kh <<< $keep
+
+now=`date +%Y-%m-%W-%d-%H`
+IFS=- read y m w d h <<< $now
+
+_mkss() {
+    btrfs subvolume snapshot -r .snapshots/$dir/last/* .snapshots/$dir/$1
+    ls -d .snapshots/$dir/$2 | head -n -$3 | xargs -r btrfs subvolume delete -v -C
+}
+
+if [[ -d .snapshots/$dir/last ]]; then
+    # the last snapshot was created at...
+    IFS=- read ly lm lw ld lh <<< $(cd .snapshots/$dir/last; ls)
+    [[ $ly == $y  ]] || _mkss $ly             "20??"          $ky
+    [[ $lm == $m  ]] || _mkss $ly-$lm         "20??-??"       $km
+    [[ $lw == W$w ]] || _mkss $ly-$lw         "20??-W??"      $kw
+    [[ $ld == $d  ]] || _mkss $ly-$lm-$ld     "20??-??-??"    $kd
+    [[ $lh == $h  ]] || _mkss $ly-$lm-$ld-$lh "20??-??-??-??" $kh
+    btrfs subvolume delete -v -C .snapshots/$dir/last/*
+else
+    mkdir -p .snapshots/$dir/last
+fi
+
+next=.snapshots/$dir/last/$y-$m-W$w-$d-$h
+[[ -d $next ]] && btrfs subvolume delete -v -C $next
+btrfs subvolume snapshot -r $dir $next
