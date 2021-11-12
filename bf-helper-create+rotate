@@ -7,7 +7,6 @@ IFS=$'\n\t'
 export PS4=':.$LINENO:'
 
 [[ -d .snapshots ]] || { echo >&2 "can't find .snapshots directory"; exit 1; }
-data=${1:?missing argument}
 
 # btrfs create a snapshot then rotate all of them per parameters
 #
@@ -44,10 +43,14 @@ IFS=' ' read ky km kw kd kh <<< $keep
 now=`date +%Y-%m-%W-%d-%H`
 IFS=- read y m w d h <<< $now
 
+# ----------------------------------------------------------------------
+
 _mkss() {
     btrfs subvolume snapshot -r .snapshots/$dir/last/* .snapshots/$dir/$1
     ls -d .snapshots/$dir/$2 | head -n -$3 | xargs -r btrfs subvolume delete -v -C
 }
+
+# ----------------------------------------------------------------------
 
 if [[ -d .snapshots/$dir/last ]]; then
     # the last snapshot was created at...
@@ -63,5 +66,11 @@ else
 fi
 
 next=.snapshots/$dir/last/$y-$m-W$w-$d-$h
-[[ -d $next ]] && btrfs subvolume delete -v -C $next
+
+# if you ever run the program more than once in a given hour (e.g., manually
+# before shutting down), the $next will already be present.  We need to
+# overwrite it, but safely
+[[ -d $next ]] && mv $next $next.save
 btrfs subvolume snapshot -r $dir $next
+[[ -d $next.save ]] && btrfs subvolume delete -v -C $next.save
+
