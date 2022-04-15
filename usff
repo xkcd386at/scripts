@@ -1,0 +1,116 @@
+#!/bin/bash
+
+shopt -s inherit_errexit
+set -euo pipefail
+IFS=$'\n\t'
+die() { echo >&2 "$*"; exit 1; }
+
+cat <<EOF >/dev/null
+
+"usff" stands for "user separated firefox".  Or maybe "ultimate separation for firefox" :)
+
+WHY
+---
+
+    I want persistent logins to several sites, with the ultimate separation
+    between them, even more than Firefox's container tabs can give me.  I
+    don't need it for all sites; only for anything to do with money (bank,
+    credit card, etc., shopping sites, and my primary email where bank may
+    send statements etc).
+
+    Unix's user-to-user separation has been around longer than anything else I
+    can *trivially* get my hands on (translation: Qubes is overkill and anyway
+    I don't have the hardware for it!) so why not use that instead?  Just
+    create and use a separate Unix userid for each site you want to log on to.
+
+    Note that any files uploaded (downloaded) will have to be moved manually,
+    using some other mechanism, before (after) the session.
+
+HOW
+---
+
+    ONE-TIME preparation:
+
+    -   Put this script (usff) somewhere in PATH.
+
+    -   As root, create the group which will hold all these userids:
+
+            groupadd usff
+
+    -   As root, add this line to the sudoers file (by running "visudo"):
+
+            xkcd386 ALL=(%usff) NOPASSWD: ALL
+
+        (replace "xkcd386" with whatever your userid is).
+
+    ONE-TIME per site you want to enable this for:
+
+    -   As root, for each site you want to separate, run this (using a
+        fictional "mybank" as an example):
+
+            usff new mybank.com
+
+    REGULAR USE
+
+    -   From your normal userid, (again using mybank as an example) just run:
+
+            usff mybank.com
+
+REMINDER
+--------
+
+    Nothing stops you from using a mybank.com firefox instance to log on to,
+    say, google.  This is not meant to protect against **you** :-)
+
+    The biggest adjustment is links.  Don't click on links that go to some
+    other site.  Instead, start the other browser also (if needed), then copy
+    and paste the link.
+
+    In reality, the sites I use it for rarely have any cross bleed like this
+    so this has not been a problem for me so far.  YMMV.
+
+EOF
+
+# ----------------------------------------------------------------------
+
+sitename_to_username() {
+    SITE=$(echo "$1" | tr -cd a-z0-9)
+    SITE=usff-$SITE   # mandatory prefix, to distinguish from other users
+    echo $SITE
+    # i.e., "mybank.com" becomes "usff-mybankcom"
+}
+
+# ----------------------------------------------------------------------
+
+if [[ $USER == root ]]; then
+    # arg 1 should be "new"; just as a sanity check
+    [[ $1 == new ]] || die "Usage: '$0' new somesite.com"
+    shift;
+
+    SITE=$(sitename_to_username "$1")
+    SITEHOME="/home/$SITE"
+
+    useradd -m -G usff $SITE
+    chmod -R go-rwx $SITEHOME
+    chown -R $SITE:$SITE $SITEHOME
+
+    echo "$SITE:"`openssl rand -hex 32` | chpasswd
+
+    echo >&2 "Created new user $SITE..."
+
+    exit 0
+fi
+
+[[ -z ${1:-} ]] && die "need a site name"
+
+# ----------------------------------------------------------------------
+
+SITE=$(sitename_to_username "$1")
+SITE=$(cd /home; ls -d usff-* | grep "$1" | head -1 || echo NOTFOUND)
+[[ -d /home/$SITE ]] || die "run 'usff new $1' as root first"
+shift
+
+# just start firefox
+xhost +SI:localuser:$SITE
+sudo -u $SITE firefox "$@" > /tmp/log.usff 2>&1 </dev/null
+xhost -SI:localuser:$SITE
