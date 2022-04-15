@@ -13,18 +13,30 @@ WHY
 ---
 
     I want persistent logins to several sites, with the ultimate separation
-    between them, even more than Firefox's container tabs can give me.  I
-    don't need it for all sites; only for anything to do with money (bank,
-    credit card, etc., shopping sites, and my primary email where bank may
-    send statements etc).
+    between them, even more than Firefox's profiles or container tabs can give
+    me.  I don't need it for all sites; only for anything to do with money
+    (bank, credit card, etc., shopping sites, and my primary email where bank
+    may send statements etc).
 
     Unix's user-to-user separation has been around longer than anything else I
     can *trivially* get my hands on (translation: Qubes is overkill and anyway
     I don't have the hardware for it!) so why not use that instead?  Just
     create and use a separate Unix userid for each site you want to log on to.
 
-    Note that any files uploaded (downloaded) will have to be moved manually,
-    using some other mechanism, before (after) the session.
+    Advantages:
+    -   Unix OS level separation is much older and much more time-tested than
+        any firefox-internal mechanisms like container tabs or profiles
+        (consider the probability of a bug in firefox that breaks the wall
+        between profiles, and the probability of the same thing happening to
+        the Unix user-id separation)
+    -   Invoked programs (e.g., PDF reader) also run separated (consider the
+        likelihood of downloading a malicious PDF, for example)
+
+    Disadvantages (also see "REMINDER" section below):
+    -   Any files downloaded that you want to preserve will have to be moved
+        manually, using some other mechanism.  (I typically just use /tmp/tmp,
+        (chmod 1777, just like /tmp), and a cron job that goes in and wipes
+        out files older than a day to keep it sane).
 
 HOW
 ---
@@ -55,6 +67,18 @@ HOW
     -   From your normal userid, (again using mybank as an example) just run:
 
             usff mybank.com
+
+    -   If you want to open a PDF or a media file from within this browser,
+        you will either have to rerun the usff command above just before you
+        open it, or you may choose to comment out the last line in this script
+        (the "xhost -" line)
+
+    -   You can even start other programs.  Let's say you already downloaded
+        your bank statement PDF in a session yesterday.  Just run
+
+            usff mybank.com okular
+
+        and hit Ctrl-O to navigate to your file and open it.
 
 REMINDER
 --------
@@ -110,7 +134,23 @@ SITE=$(cd /home; ls -d usff-* | grep "$1" | head -1 || echo NOTFOUND)
 [[ -d /home/$SITE ]] || die "run 'usff new $1' as root first"
 shift
 
-# just start firefox
+sudo -u $SITE id    # will provoke asking for password
+
+# browser or other tool to start
+if [[ -n "${1:-}" ]]; then
+    :
+elif sudo -u $SITE ls -d /home/$SITE/.librewolf >/dev/null 2>&1 ; then
+    set -- librewolf
+else
+    set -- firefox
+fi
+
+# enable X programs to run as user $SITE
 xhost +SI:localuser:$SITE
-sudo -u $SITE firefox "$@" > /tmp/log.usff 2>&1 </dev/null
+
+# start the browser if it's not already started
+pgrep -c -u $SITE -f "$1" || dm sudo -u $SITE "$@"
+
+sleep 5
+# disable any more X programs from running (see usage notes above)
 xhost -SI:localuser:$SITE
