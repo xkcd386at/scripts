@@ -4,9 +4,9 @@ I got tired of debating this with them; their arguments are subjective, often pa
 
 This is the result: a list of **in the wild** exploits that have happened on both OSs (see "scope" in the next section for more).
 
-This page is really only a bunch of URLs with some quotes from them.  Click the links and dig further as your time and interests dictate.  I'm not adding my opinions, so there's nothing to debate.
+Let me emphasise this for people whose knee-jerk response is "CVE counting is not a good metric".  These are not *just* CVEs, these are actual, in the wild, exploits that were/are actively used by attackers.  **If you're a sysadmin (even a competent one who does all the right things) this is your reality to deal with, and neither the theoretical arguments in madaidnas's page nor any other kind of rationalising will change that.**
 
-That said, there *is* a Linux section, so feel free to send me any links to Linux issues that are "in scope" which I may have missed.  Also, if you think one of the entries should actually be "out of scope" by the criteria below, let me know.  All other responses will be cheerfully ignored.
+Of course, there *is* a Linux section, though as of 2022-08-31 it has only one entry.  Feel free to send me any links to Linux issues that are "in scope" which I may have missed.  Also, if you think one of the entries should actually be "out of scope" by the criteria below, let me know.  All other responses will be cheerfully ignored.
 
 # what is in scope
 
