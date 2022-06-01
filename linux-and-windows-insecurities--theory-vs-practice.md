@@ -29,6 +29,13 @@ Other notable responses to that page:
 
 # windows
 
+*   2022-08-10: <https://www.theregister.com/2022/08/09/august_patch_tuesday_microsoft/>
+    *   another MSDT vulnerability that MS describes as "under active attack"
+    *   this is NOT the same as the one below (Follina), though it is the same component.  This one is [CVE-2022-34713](https://msrc.microsoft.com/update-guide/vulnerability/CVE-2022-34713), the older one was [CVE-2022-30190](https://msrc.microsoft.com/update-guide/vulnerability/CVE-2022-30190)
+    *   update 2022-08-13: <https://tech.slashdot.org/story/22/08/12/2037213/microsoft-urges-windows-users-to-run-patch-for-dogwalk-zero-day-exploit> is instructive (emphasis mine in the quote below)
+        >   DogWalk **affects all Windows versions under support**, including the latest client and server releases, Windows 11 and Windows Server 2022.
+        >   The vulnerability was first reported in January 2020 but at the time, Microsoft said it didn't consider the exploit to be a security issue. **This is the second time in recent months that Microsoft has been forced to change its position on a known exploit**, having initially rejected reports that another Windows MSDT zero-day, known as Follina, posed a security threat. A patch for that exploit was released in June's Patch Tuesday update
+
 *   2022-05-31: Follina, <https://www.securityweek.com/microsoft-confirms-exploitation-follina-zero-day-vulnerability>
     *   "*Follina was initially described as a Microsoft Office zero-day vulnerability, but Microsoft says it actually affects the Microsoft Support Diagnostic Tool (MSDT), which collects information that is sent to Microsoft support.*"
         *   note: this is why I am including it; if it was just MS Office I would not have
