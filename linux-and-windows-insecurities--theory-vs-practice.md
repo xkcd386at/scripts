@@ -6,7 +6,7 @@ This is the result: a list of **in the wild** exploits that have happened on bot
 
 Let me emphasise this for people whose knee-jerk response is "CVE counting is not a good metric".  These are not *just* CVEs, these are actual, in the wild, exploits that were/are actively used by attackers.  **If you're a sysadmin (even a competent one who does all the right things) this is your reality to deal with, and neither the theoretical arguments in madaidnas's page nor any other kind of rationalising will change that.**
 
-Of course, there *is* a Linux section, though as of 2022-08-31 it has only one entry.  Feel free to send me any links to Linux issues that are "in scope" which I may have missed.  Also, if you think one of the entries should actually be "out of scope" by the criteria below, let me know.  All other responses will be cheerfully ignored.
+Of course, there *is* a Linux section, though as of 2022-11-09 it has only one entry.  Feel free to send me any links to Linux issues that are "in scope" which I may have missed.  Also, if you think one of the entries should actually be "out of scope" by the criteria below, let me know.  All other responses will be cheerfully ignored.
 
 # what is in scope
 
@@ -28,6 +28,13 @@ Other notable responses to that page:
 ----
 
 # windows
+
+(Reverse chronological order)
+
+*   2022-11-09: <https://www.theregister.com/2022/11/09/microsoft_november_2022_patch_tuesday/> ("Microsoft squashes six security bugs already exploited in the wild")
+    *   I have not had time to dig deeper, but 2 of those 6 appear to be MS Exchange bugs, so technically out of scope for this document (see "what is in scope" section above)
+    *   Even so, **four actively exploited** vulns is a pretty big jump, in the space of 3 months since my last update!
+    *   "*Another 22 vulnerabilities in the Windows giant's products have been labeled "more likely to be exploited" than not.*"
 
 *   2022-08-10: <https://www.theregister.com/2022/08/09/august_patch_tuesday_microsoft/>
     *   another MSDT vulnerability that MS describes as "under active attack"
