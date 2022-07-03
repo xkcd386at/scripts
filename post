@@ -1,0 +1,17 @@
+Don't believe people who tell you chrome is more secure. Here are the numbers, note especially the CRITICAL count -- they're more than an order of magnitude worse.
+
+$ wget -q https://nvd.nist.gov/feeds/json/cve/1.1/nvdcve-1.1-2021.json.gz
+$ cve-compare-firefox-chrome nvdcve-1.1-2021.json.gz
+TO BE FILLED
+TO BE FILLED
+TO BE FILLED
+
+Get the script at https://github.com/xkcd386at/scripts/blob/master/cve-compare-firefox-chrome; it's only about 20 lines of shell, using gron and datamash and perl.
+
+Chrome shills have tried telling me all sorts of things like "counting CVEs is not meaningful to compare security" (true, if the numbers were somewhat close to each other, but when they're **24** to **1**, that argument does not wash), "bean counting is not objective" (no, numbers are about as objective as you can get most of the time, you just have to be aware of where the numbers are coming from and what you're comparing), "you don't understand what that URL is saying" (yes I do, that url is describing *potential* security holes.  Depending on how big the problem is, it can be anything from trivial to very hard to turn it into an *actual* security hole.  The NVD numbers are *actual* security holes found).
+
+Now, I know I am bringing shame to my reddit username in saying this, but I simply do not have the time to deal with the aforesaid chrome shills who will, almost certainly, popup and respond to this.  I did that a couple of times but it gets really tiring, and at the end of the day they don't convince me (and vice versa I am sure), so I'm going to not respond to this thread any more -- I've said what I feel is necessary to say.  You, dear OP, get to choose which argument to believe.  Good luck, and may you choose wisely!
+
+(And I'm not even going to worry about downvotes -- that's pretty much expected when you diss Chrome here!)
+
+<!-- https://www.reddit.com/r/PrivacyGuides/comments/r5hyx6/noob_question_is_brave_better_than_mozilla_firefox/ -->
