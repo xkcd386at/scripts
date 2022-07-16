@@ -12,26 +12,33 @@
 # because of that, and partly as a challenge, I decided to do this in shell,
 # using fzf for the UI and tmux itself for the windowing
 
+# my first version used *panes*, but some kind soul on /r/tmux gave me a
+# lightbulb moment: use a nested TMUX session, and
+# indeed this is much better than what I had before!
+
 # upsides:
-#   1.  use my own tmux shortcuts (muscle memory!) to navigate panes, kill
-#       programs and so on
+#   1.  use on machines where you're not allowed to install arbitrary binaries
+#   2.  use your own tmux shortcuts (muscle memory for the win!) to navigate
+#       windows, kill programs and so on
 
 # downsides:
-#   1.  live/dead status does not automatically update -- you have to hit
-#       ctrl-r (see below)
-#   2.  WARNING: DO NOT USE "tmux kill-pane" or similar commands, or any tmux
-#       shortcut that runs those commands!
+#   1.  live/dead status does not automatically update -- it'll update when
+#       you move the arrow keys, or you can hit ctrl-r (see below)
+#   2.  WARNING: DO NOT USE "tmux kill-*" commands, or any tmux shortcut that
+#       runs those commands!
 #   3.  I only need to run it *once*, from $HOME, so there's only one rc file
 #       in a fixed location; you may need more than that
+#   4.  up/down movement is a bit glitchy (I am not a super-expert with tmux
+#       so I'm sure I'm missing something here!)
 
 # usage:
 #   -   create ~/.config/frc that has lines like this:
 #               w0      wg-quick down wg0
 #               w1      wg-quick up wg0
-#               phs     nmcli dev wifi connect xk3phs
+#               phs     nmcli dev wifi connect phs
 #               # phs == phone hotspot
 #               *hwf    nmcli dev wifi connect homewifi
-#               save    cd ~/work; rclone sync -v . workOneDrive:laptop-work
+#               save    cd ~/work; rclone sync -v . work-server:backup/work
 #       -   note: these are just some silly examples I made up; they're not
 #           the ones I actually have in my rc file :)
 #   -   once you have created the file, just run "frc" without arguments
@@ -39,37 +46,39 @@
 
 # notes on the rc file:
 #   -   the format is "<name> <command> <args>"; NO LEADING SPACES PLEASE!
-#   -   the "name" is a simple word that is shown by fzf which reminds you
-#       what command it runs
+#   -   the "name" is a simple word you choose that reminds you what command
+#       it represents
 #   -   the "command + args" is treated as a single string and run by "tmux
-#       splitw", so you can include "cd" and such commands in it if you need
-#       to run something from a different directory
+#       neww", so you can include "cd" and such commands in it if you need to
+#       run something from a different directory
 #   -   a "*" in column one marks a command that will auto-start when you run frc
+#       -   a QUIRK: the very first command will never autostart
 #   -   a "#" in column 1 marks a comment line
 #   -   ~/.config/frc is the one you edit and is permanent.  At runtime,
 #       however, all non-comment lines from this get copied to ~/.cache/frc;
 #       as you add and remove commands this is the file that gets updated.
 #       It gets overwritten every time you start frc
 
-# the display is a typical fzf display on the left pane, and the individual
-# target panes on the right, laid out vertically
+# the display is a typical fzf display on the left pane, and a *nested* TMUX
+# session on the right, with the window corresponding to the current line
+# visible.
 
 # keys:
-#   -   "enter" on a line to start it if it is not already running
-#   -   ctrl-d to kill a pane and delete it from the list
+#   -   "enter" on a line to run the command (no-op if it is already running)
+#   -   ctrl-d to kill a window and delete it from the list
 #   -   ctrl-a to add a new command
 #   -   ctrl-r to refresh the "live/dead" status
 #       -   (marked by a "*" for programs that are running)
 #   -   ctrl-e to "vimdiff" the permanent and running rc files; note that this
-#       does not reload anything -- it just lets you update the permanent file
-#       conveniently
-#   -   ctrl-c to kill frc and all the panes it created, leaving only pane 0
+#       does not reload anything -- it just helps you update the permanent
+#       file a bit more conveniently
+#   -   ctrl-c to kill frc (but not the nested TMUX session)
 
 # what mprocs has extra which I don't need (but you might)
-# - cwd, env
-# - array of words as command instead of just a single string passed to shell
-# - kill/force kill (I use tmux shortcuts to go to the pane and kill it)
-# - focus/toggle (I use tmux shortcuts)
+#   -   pre-set env variables
+#   -   array of words as command instead of just a single string passed to shell
+#   -   kill/force kill (I just use tmux shortcuts to go to the pane and kill it)
+#   -   focus/toggle (again, I just use tmux shortcuts)
 
 # ----------------------------------------------------------------------
 
@@ -81,13 +90,31 @@ PERC=80             # view window takes 80% of the window
 
 [[ -n $TMUX ]] || { echo >&2 must run inside a tmux window; exit 1; }
 
+[[ -f $HOME/.tmux-frc.conf ]] || cat <<EOF > $HOME/.tmux-frc.conf
+# tmux conf for "frc" (frequently run commands)
+
+# default settings saved to ~/.tmux-frc.conf if it does not exist; feel free to modify
+
+set-window-option -g xterm-keys on
+set -g default-terminal "xterm-256color"
+
+set -g status-fg                    black
+set -g status-bg                    white
+set -g window-status-format         "#I #W"
+set -g window-status-current-format "#[fg=brightwhite bold bg=colour27]#I #W#[default]"
+set -g status-justify               left
+set -g status-right                 "%H:%M:%S"
+EOF
+
 ME="$0"
 TTY=`tty`
 unset FZF_DEFAULT_OPTS
 
+# ----------------------------------------------------------------------
+
 [[ -z $1 ]] && {
     # no arguments means we're starting
-    set -- _START
+    set -- START
     sed -e 's/  */ /' < $RC | grep -v '^#' > ~/.cache/frc
 }
 RC=$HOME/.cache/frc
@@ -95,7 +122,29 @@ RC=$HOME/.cache/frc
 
 # ----------------------------------------------------------------------
 
-_start() {
+new_s() {
+    echo
+    tmux set -g remain-on-exit on
+    tmux set -g renumber-windows on
+    echo -n 'hit enter to run: '
+    echo "$@"
+}
+new_w() {
+    start=$1; shift
+    if [[ $start == 0 ]]; then
+        echo
+        echo -n 'hit enter to run: '
+        echo "$@"
+    else
+        echo
+        set -x
+        eval "$@"
+    fi
+}
+
+# ----------------------------------------------------------------------
+
+start() {
     i=0
     while read name cmd
     do
@@ -105,19 +154,25 @@ _start() {
             name=${name:1}
         fi
         if [[ $i == 0 ]]; then
-            [[ $start == 1 ]] && tmux splitw -h -p $PERC "$cmd"
-            [[ $start == 1 ]] || tmux splitw -h -p $PERC "sleep 1; echo; echo 'hit enter to run: $cmd'"
-            tmux set -p remain-on-exit on
+            env TMUX= tmux list-sessions | grep ^frc: >/dev/null && {
+                echo >&2 "session 'frc' already exists; kill it with"
+                echo >&2 "    env TMUX= tmux kill-session -t frc"
+                echo >&2 "if you want to inspect it, attach with"
+                echo >&2 "    env TMUX= tmux attach-session -t frc"
+                exit 1
+            }
+            tmux splitw -h -p $PERC "env TMUX= tmux -f $HOME/.tmux-frc.conf new -s frc $ME new_s $cmd"
+            sleep 1
+            # first command will never autostart (TODO: have to retest+document this, or remove the restriction)
+
             tmux selectp -t 0
         else
-            tmux selectp -t $i
-            [[ $start == 1 ]] && tmux splitw "$cmd"
-            [[ $start == 1 ]] || tmux splitw "sleep 1; echo; echo 'hit enter to run: $cmd'"
-            tmux set -p remain-on-exit on
+            env TMUX= tmux neww -t frc:$i $ME new_w $start "$cmd"
             tmux selectp -t 0
         fi
         (( i++ ))
     done < $RC
+    env TMUX= tmux selectw -t 0
 
     # cut -f1 -d' ' < $RC | fzf --layout=reverse --no-sort \
     < $RC fzf --nth 1 --with-nth 1 --layout=reverse --no-sort \
@@ -130,44 +185,42 @@ _start() {
         --bind    "ctrl-e:execute(gvimdiff ~/.config/frc ~/.cache/frc)" \
         --bind    "ctrl-c:execute(tmux killp -a -t 0)+abort" \
         --preview "echo {}|perl -pe 's/^\S+\s+//'" \
-        --preview-window "down" \
+        --preview-window "down,wrap" \
         --info=inline \
-        --header "^d: delete"$'\n'"^a: add"$'\n'"^r: update live/dead status"
+        --header "^d: delete; ^a: add"$'\n'"^r: update live/dead status"
 
 }
 
 view() {
-    pane=$1; (( pane++ ))   # because fzf returns 0-based line number
-    tmux resizep -t $pane -y 9999
+    line=$1     # fzf returns 0-based line number, and tmux also numbers windows from 0, so we're all good
+    env TMUX= tmux selectw -t frc:$line
 
-    # this still shows one line of all the other panes but meh...  I can
-    # always use tmux shortcuts to do a full zoom in/out if he wants
-
-    # optionally uncomment, but screen looks glitchy so I don't use it:
-    # lds           # update live/dead status for all
-    # lds_1 $pane   # update live/dead status for just this pane
+    # update live/dead status for all; comment out if screen looks glitchy
+    lds
 }
 
 enter() {
-    pane=$1; (( pane++ ))   # because fzf returns 0-based line number
-    cmd="$(cat $RC | sed -n -e ${pane}p | cut -f2- -d' ')"
-    tmux respawnp -t $pane "$ME > $TTY 2>&1 showcmd $pane; $cmd"
-    lds_up $pane "*"
+    window=$1; line=$1
+    (( line++ ));   # line needs to be 1-relative here
+    cmd="$(cat $RC | sed -n -e ${line}p | cut -f2- -d' ')"
+    env TMUX= tmux respawnp -t frc:$window "$ME > $TTY 2>&1 showline $line; $cmd"
+    lds_up $window "*"
 }
 
-showcmd() {
-    pane=$1;    # this one is called with a 1-based line number, watch out!
-    printf "\n+ %s\n\n" "$(cat $RC | sed -n -e ${pane}p | cut -f2- -d' ')" >&2
+showline() {
+    line=$1
+    printf "\n+ %s\n\n" "$(cat $RC | sed -n -e ${line}p | cut -f2- -d' ')" >&2
 }
 
 del() {
-    pane=$1; (( pane++ ))   # because fzf returns 0-based line number
-    tmux killp -t $pane
-    sed -i -e ${pane}d $RC
+    line=$1
+    env TMUX= tmux killw -t frc:$line
+    (( line++ ))
+    sed -i -e ${line}d $RC
 }
 
 add() {
-    pane=`wc -l < $RC`                  # last pane
+    window=`wc -l < $RC`                  # last window
     tmux selectp -t 0
     echo -n >&2 "name: "
     read name
@@ -175,57 +228,35 @@ add() {
     read cmd
     printf "*%s %s\n" "$name" "$cmd" >> $RC
 
-    # notify-send "last pane=$pane"
-    tmux selectp -t $pane
-    tmux splitw "$cmd"
-    tmux set -p remain-on-exit on
-    tmux selectp -t 0
+    env TMUX= tmux neww -t $window "$cmd"
 }
 
 lds() {
     # update "live" or "dead" status of all panes
-    seq `wc -l < $RC` | while read n
+    seq 0 9999 | head -`wc -l < $RC` | while read n
     do
         lds_1 $n
     done
 }
 
 lds_1() {
-    read pd <<< $(tmux display -p -t $1 "#{pane_dead}")
+    read pd <<< $(env TMUX= tmux display -p -t frc:$1 "#{pane_dead}")
     [[ $pd == 0 ]] && lds_up $1 "*"
     [[ $pd == 1 ]] && lds_up $1 ""
 }
 
 lds_up() {
-    pane=$1
+    line=$1; (( line++ ))       # needs to be 1-relative
     prefix="$2"
-    perl -i -pe "s/^\*?/$prefix/ if \$. == $pane" $RC
+    perl -i -pe "s/^\*?/$prefix/ if \$. == $line" $RC
 }
 
 case $1 in
-    _START )
-        _start
-        ;;
-    view )
-        view $2
-        ;;
-    enter )
-        enter $2
-        ;;
-    showcmd )
-        showcmd $2
-        ;;
-    del )
-        del $2
-        ;;
-    add )
-        add
-        ;;
-    lds )
-        lds
+    START )
+        start
         ;;
     * )
-        echo COMMAND UNKNOWN >&2
+        "$@"
         ;;
 esac
 
