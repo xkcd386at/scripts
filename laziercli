@@ -1,0 +1,91 @@
+#!/usr/bin/perl
+
+# yet another "hmm, what else can I do with fzf" proof-of-concept program!
+
+# someone pointed me to https://github.com/jesseduffield/lazycli and of course
+# I had to implement it in fzf :)
+
+# there are a few shortcuts and conveniences taken, but this is just a POC
+# so... meh!  (For example, the YAML file shamelessly uses fzf notation for
+# the keys and the placeholder variables, so I don't have to actually *do*
+# anything except compose the fzf command and let it run!)
+
+# the YAML file that I currently have in my ~/.config/lazierclirc is:
+=for YAML
+ls:
+    ctrl-d:     "echo rm -v {1}"
+    ctrl-alt-d: "echo rm -vrf {1}"
+    alt-v:      "vim {1}"
+    alt-m:      "md5sum {1}"
+    alt-b:      "b3sum {1}"
+ls -al:
+    ctrl-d:     "echo rm -v {9}"
+    ctrl-alt-d: "echo rm -vrf {9}"
+    alt-v:      "vim {9}"
+    alt-m:      "md5sum {9}"
+    alt-b:      "b3sum {9}"
+=cut
+
+use warnings;
+use strict;
+use 5.10.0;
+
+use Data::Dumper;
+use YAML::XS qw(DumpFile LoadFile);
+
+my $tty=`tty`; chomp $tty;
+my $fzfm = $0;
+my $RC = "$ENV{HOME}/.config/lazierclirc";
+
+# ----------------------------------------------------------------------
+
+my $rc = LoadFile($RC);
+
+# get the command being executed, which is basically @ARGV
+my $cmd = join(" ", @ARGV);
+die "no command?" unless $cmd;
+# this is probably something like "ls -al /tmp".  Our keys are perhaps "ls",
+# and "ls -al".  We have to match this $cmd to the longest prefix in our keys
+# (i.e., "ls -al")
+my $key = "NOT FOUND";
+for (sort { length($b) <=> length($a) } keys %$rc) {
+    if (index($cmd, $_) == 0) {
+        $key = $_;
+        last;
+    }
+}
+die "command not found in '$RC'" if $key eq "NOT FOUND";
+
+# generate the "--header" and the "--bind" options
+my $header;
+my @binds;
+my $val = $rc->{$key};
+for my $c (sort keys %$val) {
+    my $v = $val->{$c};
+    $header .= sprintf "%-12s\t%s\n", $c, $v;
+    push @binds, "--bind", "$c:execute(exec > $tty; exec 2>&1; $v; echo -n 'Press enter...'; read)"
+}
+
+# now run fzf
+$ENV{FZF_DEFAULT_COMMAND} = $cmd;
+my @ret = fzf();
+# this is where you'd loop if you cared to do more with this.  This is also
+# where you'd trap things like the key-combo for a "cd", then cd to the
+# directory and rerun fzf, etc.
+
+# ----------------------------------------------------------------------
+
+sub fzf {
+    my @cmd = ("fzf",
+        "--expect", "esc",
+        "--header", $header,
+        @binds,
+    );
+
+    open(FZF, "-|", @cmd);
+    @ret = <FZF>;
+    close FZF;
+    chomp(@ret);
+
+    return @ret;
+}
