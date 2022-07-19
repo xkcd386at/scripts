@@ -10,6 +10,8 @@
 # the keys and the placeholder variables, so I don't have to actually *do*
 # anything except compose the fzf command and let it run!)
 
+# ----------------------------------------------------------------------
+
 # the YAML file that I currently have in my ~/.config/lazierclirc is:
 =for YAML
 ls:
@@ -24,7 +26,34 @@ ls -al:
     alt-v:      "vim {9}"
     alt-m:      "md5sum {9}"
     alt-b:      "b3sum {9}"
+netstat:
+    alt-r:      "reload"
+    alt-l:      "append -l"
+    alt-b:      "reload netstat -plnut"
+    alt-f:      "reload lsof -iTCP -iUDP"
 =cut
+
+# note in particular the netstat entries
+#
+# let's say you started with "netstat -pnt".  Now, if you hit alt-r, it will
+# reload (because netstat info may have changed this is like a refresh)
+#
+# if you hit alt-l, it will *append* "-l" to your *original* command, thus
+# running "netstat -pnt -l", and will reload using that
+#
+# if you hit alt-b (b for "both"), it will reload with a brand new set of
+# options
+#
+# actually, you can reload with *any* command; it does not have to be a
+# netstat command, as you can see from the "alt-f" line, where we are now
+# loading "lsof"!
+#
+# and at any time, alt-r will reload the original command you started with
+#
+# finally, REMEMBER, the *code* for all this reload/append stuff is like 4
+# lines; everything else is in your YAML :)
+
+# ----------------------------------------------------------------------
 
 use warnings;
 use strict;
@@ -62,8 +91,15 @@ my @binds;
 my $val = $rc->{$key};
 for my $c (sort keys %$val) {
     my $v = $val->{$c};
+
+    # handle reload and append
+    $v eq "reload" and $v .= " $cmd";
+    $v =~ s/^append // and $v = "reload $cmd $v";
     $header .= sprintf "%-12s\t%s\n", $c, $v;
-    push @binds, "--bind", "$c:execute(exec > $tty; exec 2>&1; $v; echo -n 'Press enter...'; read)"
+
+    $v =~ s/^reload //
+        ?   push @binds, "--bind", "$c:reload($v)"
+        :   push @binds, "--bind", "$c:execute(exec > $tty; exec 2>&1; $v; echo -n 'Press enter...'; read)";
 }
 
 # now run fzf
