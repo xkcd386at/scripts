@@ -115,6 +115,10 @@ sub fzf {
     my @cmd = ("fzf",
         "--expect", "esc",
         "--header", $header,
+        "--preview", "echo {} | grep --color=always -f <(printf \"%s\\n\" `echo {q}`)",
+        "--preview-window", "down,wrap,25%",
+        # preview window helps when the line is too long, since fzf won't scroll horizontally (it seems)
+        # it also highlights the fzf query terms so you can see where they matched
         @binds,
     );
 
