@@ -68,6 +68,9 @@ ps -f:
     alt-r:      "reload"
     alt-t:      "kill {2}"
     alt-k:      "kill -9 {2}"
+date:
+    alt-r:      "reload # rerun date"
+    alt-s:      "reload"
 =cut
 
 # ----------------------------------------------------------------------
