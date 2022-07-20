@@ -36,8 +36,9 @@
 #
 # and at any time, alt-r will reload the original command you started with
 #
-# finally, REMEMBER, the *code* for all this reload/append stuff is like 4
-# lines; everything else is in your YAML :)
+# finally, notice the optional " # " (space, #, space) which precedes a
+# "description", for cases where you want to show that instead of the actual
+# command in the help text/fzf header
 
 =for YAML
 git branch:
@@ -48,9 +49,9 @@ git lg:
     enter:      "git ls -1 $(echo {}|grep -o ' [0-9a-f]\\{7\\} ')"
 netstat:
     alt-r:      "reload"
-    alt-l:      "append -l"
+    alt-l:      "append -l # rerun, but only for ports being listened to"
     alt-b:      "reload netstat -plnut"
-    alt-f:      "reload lsof -iTCP -iUDP"
+    alt-f:      "reload lsof -iTCP -iUDP # not finding what you're looking for?  Try lsof!"
 ls:
     ctrl-d:     "echo rm -v {1}"
     ctrl-alt-d: "echo rm -vrf {1}"
@@ -108,10 +109,14 @@ my $val = $rc->{$key};
 for my $c (sort keys %$val) {
     my $v = $val->{$c};
 
+    # optional description; see examples up in the YAML
+    my $desc = '';
+    $v =~ s/ +# +(.*)// and $desc = $1;
+
     # handle reload and append
     $v eq "reload" and $v .= " $cmd";
     $v =~ s/^append // and $v = "reload $cmd $v";
-    $header .= sprintf "%-12s\t%s\n", $c, $v;
+    $header .= sprintf "%-12s\t%s\n", $c, ($desc || $v);
 
     $v =~ s/^reload //
         ?   push @binds, "--bind", "$c:reload($v)"
