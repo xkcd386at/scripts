@@ -12,28 +12,14 @@
 
 # ----------------------------------------------------------------------
 
-# the YAML file that I currently have in my ~/.config/lazierclirc is:
-=for YAML
-ls:
-    ctrl-d:     "echo rm -v {1}"
-    ctrl-alt-d: "echo rm -vrf {1}"
-    alt-v:      "vim {1}"
-    alt-m:      "md5sum {1}"
-    alt-b:      "b3sum {1}"
-ls -al:
-    ctrl-d:     "echo rm -v {9}"
-    ctrl-alt-d: "echo rm -vrf {9}"
-    alt-v:      "vim {9}"
-    alt-m:      "md5sum {9}"
-    alt-b:      "b3sum {9}"
-netstat:
-    alt-r:      "reload"
-    alt-l:      "append -l"
-    alt-b:      "reload netstat -plnut"
-    alt-f:      "reload lsof -iTCP -iUDP"
-=cut
+# the YAML file that I currently have in my ~/.config/lazierclirc is below
 
-# note in particular the netstat entries
+# note the two git related sections at the top -- while this will never
+# replace a tool like `tig` or the fugitive plugin in vim, it's a good example
+# that shows how for some other system where a similar "exploration" tool does
+# not already exist, you can whip one up pretty easily using laziercli!
+
+# I'll use the netstat entries to explain "reload" and "append":
 #
 # let's say you started with "netstat -pnt".  Now, if you hit alt-r, it will
 # reload (because netstat info may have changed this is like a refresh)
@@ -52,6 +38,36 @@ netstat:
 #
 # finally, REMEMBER, the *code* for all this reload/append stuff is like 4
 # lines; everything else is in your YAML :)
+
+=for YAML
+git branch:
+    enter:      "lrc git lg --color=always $(echo {} | cut -c3- | cut -f1 -d' ')"
+    # where git lg is defined in gitconfig as "git log --oneline --graph --format=...", and has colors
+git lg:
+    # the "--graph" means that there *may* be graph characters appearing before the hash; hence the "grep -o"
+    enter:      "git ls -1 $(echo {}|grep -o ' [0-9a-f]\\{7\\} ')"
+netstat:
+    alt-r:      "reload"
+    alt-l:      "append -l"
+    alt-b:      "reload netstat -plnut"
+    alt-f:      "reload lsof -iTCP -iUDP"
+ls:
+    ctrl-d:     "echo rm -v {1}"
+    ctrl-alt-d: "echo rm -vrf {1}"
+    alt-v:      "vim {1}"
+    alt-m:      "md5sum {1}"
+    alt-b:      "b3sum {1}"
+ls -al:
+    ctrl-d:     "echo rm -v {9}"
+    ctrl-alt-d: "echo rm -vrf {9}"
+    alt-v:      "vim {9}"
+    alt-m:      "md5sum {9}"
+    alt-b:      "b3sum {9}"
+ps -f:
+    alt-r:      "reload"
+    alt-t:      "kill {2}"
+    alt-k:      "kill -9 {2}"
+=cut
 
 # ----------------------------------------------------------------------
 
@@ -113,6 +129,7 @@ my @ret = fzf();
 
 sub fzf {
     my @cmd = ("fzf",
+        "--ansi",
         "--expect", "esc",
         "--header", $header,
         "--preview", "echo {} | grep --color=always -f <(printf \"%s\\n\" `echo {q}`)",
