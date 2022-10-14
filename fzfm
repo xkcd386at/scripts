@@ -25,7 +25,7 @@ WHY fzfm?
     can't have commands using printable characters -- because that is reserved
     for fzf's fuzzy matching, so everything uses control+key,
 
-    But it was fun to write, and to see what you can do with fzf and about 250
+    But it was fun to write, and to see what you can do with fzf and about 350
     lines of perl :-)
 
 FEATURES/ROADMAP
