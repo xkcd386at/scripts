@@ -52,7 +52,6 @@
 #       neww", so you can include "cd" and such commands in it if you need to
 #       run something from a different directory
 #   -   a "*" in column one marks a command that will auto-start when you run frc
-#       -   a QUIRK: the very first command will never autostart
 #   -   a "#" in column 1 marks a comment line
 #   -   ~/.config/frc is the one you edit and is permanent.  At runtime,
 #       however, all non-comment lines from this get copied to ~/.cache/frc;
@@ -133,8 +132,7 @@ new_s() {
     echo
     tmux set -g remain-on-exit on
     tmux set -g renumber-windows on
-    echo -n 'hit enter to run: '
-    echo "$@"
+    new_w "$@"
 }
 new_w() {
     start=$1; shift
@@ -165,8 +163,7 @@ start() {
                 name=${name:1}
             fi
             if [[ $i == 0 ]]; then
-                tmux splitw -h -p $PERC "env TMUX= tmux -f $HOME/.tmux-frc.conf new -s frc $ME new_s $cmd"
-                # first command will never autostart (TODO: have to retest+document this, or remove the restriction)
+                tmux splitw -h -p $PERC "env TMUX= tmux -f $HOME/.tmux-frc.conf new -s frc $ME new_s $start $cmd"
                 sleep 1
                 # this sleep is *required* -- otherwise the whole thing exits before the "remain-on-exit" option is set!
             else
