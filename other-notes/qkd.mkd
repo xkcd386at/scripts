@@ -1,0 +1,126 @@
+# QKD
+
+The only real advantage QKD has over classical cryptography is in the assumptions: hardness of some mathematical problem in one case, versus actual laws of physics in the other.
+
+However, QKD still does not solve the identity problem -- there is no way of knowing, **without having a PRE-SHARED SECRET**, if you are talking to the right person.  But pre-shared secrets are very cumbersome to manage, and they are precisely the thing that classical public key cryptography eliminates the need for.
+
+On top of that, it is highly non-scalable -- it requires point-to-point **optical** links, and you cannot use relays because that would break the trust!
+
+Quoted text is presented in *italics* below.  Within that, any ***bold*** is from the source, not added by me.
+
+## quotable URLs
+
+-   *It is not just NSA who does not see the point of QKD.  All serious cryptographers think the same...*
+    -   <https://twitter.com/SmartCryptology/status/1432645860245000197>
+    -   this is Prof Nigel Smart (I think Bristol U); he's pretty well known in cryptography circles; see <https://en.wikipedia.org/wiki/Nigel_Smart_(cryptographer)> for more
+    -   He is referring to the NSA FAQ on QC and PQC (see next section)
+-   *SFAICT, QKD is mostly a way for academic physics to seek grants from credulous donors.*
+    -   <https://seclists.org/dailydave/2017/q3/14>
+    -   (SFAICT == So far as I can tell)
+-   *QKD is a working solution looking for problems, and failing at that.*
+    -   <https://crypto.stackexchange.com/questions/60516/quantum-cryptography-used-in-a-messaging-application>
+    -   several more quotable points in there :)
+-   *QKD may find some use in a few niche applications, for instance as a defense-in-depth measure on point-to-point links. However, the use of state-of-the art classical cryptography including post-quantum algorithms is by far the preferred way to ensure long-term protection of data, as it is the only technology choice that offers the functional properties needed in modern communication systems.*
+    -   (The French national information security agency) <https://www.ssi.gouv.fr/en/publication/should-quantum-key-distribution-be-used-for-secure-communications/>
+    -   more from this source below
+
+## more detailed (i.e., serious) URLs
+
+-   The French national information security agency has a very well articulated page at <https://www.ssi.gouv.fr/en/publication/should-quantum-key-distribution-be-used-for-secure-communications/>
+    -   second para summarises best:
+
+        >   *QKD may find some use in a few niche applications, for instance as a defense-in-depth measure on point-to-point links. However, the use of state-of-the art classical cryptography including post-quantum algorithms is by far the preferred way to ensure long-term protection of data, as it is the only technology choice that offers the functional properties needed in modern communication systems.*
+
+    -   One very important point, which is easy to miss, is: *[the] fact that QKD requires specific hardware [...] prevents it from providing end-to-end security for instance between virtualized environments or between software services.*
+    -   Here's the simplest explanation
+        -   Consider a typical server hosting something critical.
+        -   The server is either physical or virtualised -- but either way, it is sure to be deep inside some data center.
+        -   At present, there is **no need to trust ANY of the networking infrastructure surrounding that server** (unless using a load balancer, which we will ignore for the moment) -- and TLS assures that the other party can make a secure connection *direct* to the server.
+        -   This is no longer true if you use QKD -- unless the QKD hardware is connected directly to the server, you are **forced to trust the networking infrastructure**.
+        -   (And this is not even touching on the point that with TLS, **any** party can talk securely to a server, whereas with QKD it's only point-to-point!)
+
+-   <https://www.ncsc.gov.uk/whitepaper/quantum-security-technologies>
+    -   UK's National Cyber Security Center does not like QKD :)
+
+        >   *However, because QKD protocols do not provide authentication, they are vulnerable to physical man-in-the-middle attacks in which an adversary can agree individual shared secret keys with two parties who believe they are communicating with each other.*
+
+        >   *QKD is not the only mitigation against the threat of quantum computers. Work towards standardising quantum-safe cryptographic algorithms is underway in international standards bodies such as NIST. These algorithms can be implemented on today's classical computers, and, unlike QKD solutions, do not require dedicated or specialist hardware. Quantum-safe cryptographic algorithms allow two remote parties to agree a shared secret key with authentication, hence without the risk of man-in-the-middle attacks.*
+
+    -   Here's the "NCSC Position"
+
+        >   ***NCSC Position***
+
+        >   *Given the specialised hardware requirements of QKD over classical
+        >   cryptographic key agreement mechanisms and the requirement for
+        >   authentication in all use cases, the **NCSC does not endorse the use of
+        >   QKD for any government or military applications**, and cautions against
+        >   sole reliance on QKD for business-critical networks, especially in
+        >   Critical National Infrastructure sectors.*
+
+        >   *In addition, we advise that any other organisations considering the use
+        >   of QKD as a key agreement mechanism ensure that robust quantum-safe
+        >   cryptographic mechanisms for authentication are implemented alongside
+        >   them.*
+
+        >   ***NCSC advice is that the best mitigation against the threat of quantum
+        >   computers is quantum-safe cryptography**.*
+
+-   <https://media.defense.gov/2021/Aug/04/2002821837/-1/-1/1/Quantum_FAQs_20210804.PDF>
+    -   this is the NSA's FAQ on QC and PQC
+    -   Page 2 has 3 questions on QKD
+
+        >   *Q: What is quantum key distribution (QKD) and quantum cryptography?*
+
+        >   *A: The field of quantum cryptography involves specialized hardware that makes use of the physics of quantum
+        >   mechanics (as opposed to the use of mathematics in algorithmic cryptography) to protect secrets. The most
+        >   common example today uses quantum physics to distribute keys for use in a traditional symmetric algorithm,
+        >   and is thus known as quantum key distribution. This technology exists today and is distinct from the quantum
+        >   computing technology that might one day be used to attack mathematically based cryptographic
+        >   algorithms. The sole function of QKD is to distribute keys between users and hence it is only one part of a
+        >   cryptographic system.*
+
+        >   *Q: Are QKD systems unconditionally secure?*
+
+        >   *A: No. While there are security proofs for theoretical QKD protocols, there are no security proofs for actual
+        >   QKD hardware/software implementations. There is no standard methodology to test QKD hardware, and there
+        >   are no established interoperability, implementation, or certification standards to which these devices may be
+        >   built. This causes the actual security of particular systems to be difficult to quantify, leading in some cases to
+        >   vulnerabilities.*
+
+        >   *Q: Should I use a QKD system to protect my NSS from a quantum computer?*
+
+        >   *A: No. The technology involved is of significant scientific interest, but it only addresses some security threats
+        >   and it requires significant engineering modifications to NSS communications systems. NSA does not consider
+        >   QKD a practical security solution for protecting national security information. NSS owners should not be using
+        >   or researching QKD at this time without direct consultation with NSA. For specific questions, NSS owners can
+        >   contact NSA*
+
+-   <https://crypto.stackexchange.com/questions/62261/challenges-in-quantum-key-distribution>
+
+-   <http://crypto.stackexchange.com/questions/2719/is-quantum-key-distribution-safe-against-mitm-attacks-too>
+    -   This article argues that the only real difference is the assumptions: hardness of some mathematical problem in one case, versus actual laws of physics in another.
+
+        >   *Quantum Key Distribution is not any safer than conventional crypto is against [man-in-the-middle]*
+
+        >   *Non-quantum cryptography routinely does the same (or better: the initial trusted data needs not be secret, e.g. Alice and Bob can exchange their public key; this makes it easier to safely use asymmetric non-quantum cryptography than it is to use QKD)*
+
+    -   <https://crypto.stackexchange.com/questions/51311/what-makes-quantum-cryptography-secure/51314#51314>
+        -   this is one of the "go to" reference answers I have seen linked in several places
+        -   very long, very detailed (6 or sections, with lots of sub-sections)
+        -   comes down to this:
+
+        >   *Besides a quantum link, secure data communication with Quantum Cryptography (more precisely, Quantum Key Distribution) uses classical links, mathematically provable classical cryptography, and a setup procedure using initially trusted material just as in classical cryptography.*
+
+        >   *To perform the same, classical cryptography uses the one-time pad; or assumes a bound of the adversary's computing power and some unproven mathematical hypothesis. But assumptions may turn out wrong, and the risk exists that future progress allows decryption of archived intercepts. Pure quantum key distribution avoids that particular risk by instead relying only on physics when it comes to unproven assumptions.*
+
+    -   there are **lot more** details but if it's too long to read, here's the "**Operational Summary**" section
+
+        >   *Quantum Key Distribution (a subfield of Quantum Cryptography) in principle performs the same tasks, and uses the same operational procedures as conventional cryptography, with no operational simplification whatsoever. In particular, **the need for initially trusted material established by inconvenient human means remainsi**.*
+
+        >   *QKD relies on physics rather than mathematics when it comes to an unproven hypothesis. That's a remarkable achievement and paradigm shift. But if that's a benefit, it is intangible and did not help QKD get a clean security track record, much less be widely recognized as useful by practitioners.*
+
+        >   *Integration of QKD in current networks is utterly impractical: QKD currently requires a dedicated fiber with a practical range limit `<` 500 km, or direct line of sight with no sunlight, rain, or fog. That can only be extended with trusted facilities at each intermediary endpoint. Practical throughput is low, except when supplemented by conventional cryptography (then losing some of the aforementioned intangible benefits).*
+
+        >   *Commercial QKD equipment is complex, in part because it relies heavily on many classical mathematically provable cryptographic techniques. It is expensive, big, power-hungry, in low demand and stock, of unproven field reliability, seldom used in practice, and not recognized by security certification authorities.*
+
+        >   *QKD removes the risk that future technological progress allows compromise of intercepts made earlier. It is worth consideration in complement (not replacement) of carefully vetted classical cryptography with independent secure setup procedure, for data which confidentiality is of utmost importance (especially if that's for decades), if we trust couriers for setup keys but not for the one-time pads traditionally used for perfect secrecy in that situation.*
