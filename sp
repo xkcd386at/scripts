@@ -79,7 +79,7 @@ case $op in
         [[ -d .dir ]] || die "nothing here"
         cd .dir
         [[ -f $SPDIR/.cut  ]] && cat $SPDIR/.cut  | xargs -d$'\n' mv -t "$od"
-        [[ -f $SPDIR/.copy ]] && cat $SPDIR/.copy | xargs -d$'\n' cp -t "$od"
+        [[ -f $SPDIR/.copy ]] && cat $SPDIR/.copy | xargs -d$'\n' cp -r -t "$od"
         rm -f $SPDIR/.cut
         ;;
     pp|paste-with-parents )
@@ -88,7 +88,7 @@ case $op in
         [[ -d .dir ]] || die "nothing here"
         cd .dir
         [[ -f $SPDIR/.cut  ]] && die NOT YET IMPLEMENTED
-        [[ -f $SPDIR/.copy ]] && cat $SPDIR/.copy | xargs -d$'\n' cp --parents -t "$od"
+        [[ -f $SPDIR/.copy ]] && cat $SPDIR/.copy | xargs -d$'\n' cp -r --parents -t "$od"
         # -- will be needed when cut/pp is implemented -- rm -f $SPDIR/.cut
         :
         ;;
