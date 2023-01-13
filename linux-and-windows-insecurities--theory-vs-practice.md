@@ -31,6 +31,11 @@ Other notable responses to that page:
 
 (Reverse chronological order)
 
+*   2023-01-13: <https://www.theregister.com/2023/01/11/patch_tuesday_january_2023/>
+    *   "*Microsoft fixed 98 security flaws in its first Patch Tuesday of 2023 including one that's already been exploited and another listed as publicly known. Of the new January vulnerabilities, 11 are rated critical because they lead to remote code execution.*" \
+        \
+        "*The bug that's under exploit, tracked as CVE-2023-21674, is an advanced local procedure call elevation of privilege vulnerability that received an 8.8 CVSS rating.*"
+
 *   2022-11-09: <https://www.theregister.com/2022/11/09/microsoft_november_2022_patch_tuesday/> ("Microsoft squashes six security bugs already exploited in the wild")
     *   I have not had time to dig deeper, but 2 of those 6 appear to be MS Exchange bugs, so technically out of scope for this document (see "what is in scope" section above)
     *   Even so, **four actively exploited** vulns is a pretty big jump, in the space of 3 months since my last update!
