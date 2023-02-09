@@ -7,8 +7,6 @@ use Data::Dumper;
 
 # find duplicate DIRECTORIES, not files
 
-# TODO: output format may need some attention
-
 # usage:
 #   dirdups dir1 dir2 | dirdups
 # the first run "collects" the hashes, the second "reports" the duplicates
@@ -63,30 +61,48 @@ $ENV{LANG} = "C";
 
 while (<>) {
     chomp;
-    my ($h, $f) = split;
-    while ($f =~ m(/)) {
-        $f =~ s(/([^/]+$))();
+    my ($h, $fl) = split;
+    my $fr = '';
+    # $fl . $fr == original filename at all times.  Each time round the loop,
+    # the last component of fl moves to the beginning of fr
+    while ($fl =~ m(/)) {
+        $fl =~ s(/([^/]+$))();
+        $fr = ( $fr ? "$1/$fr" : $1 );
         # we said "dh" is "directory name => contents", but the "contents"
         # could be both pathname *and* hash, only pathname, or only hash:
         if ($dco) {
             # only hash
-            $dh{$f} .= "$h\n";
+            $dh{$fl} .= "$h\n";
         } elsif ($dno) {
             # only pathname
-            $dh{$f} .= "$1\n";
+            $dh{$fl} .= "$fr\n";
         } else {
             # both
-            $dh{$f} .= "$h $1\n";
+            $dh{$fl} .= "$h $fr\n";
         }
+        # it helps if think of this concatenated value as the "content
+        # signature" of the directory, which in subsequent comments below we
+        # call "signature"
     }
 }
 
-# now reverse %dh.  The "key" is now the "content" described above, and the
-# "value" is a directory name.  But there are potentially many directories
-# with the same content, so the value is an *array of all directory names*
-# that have the same content
-for my $d (keys %dh) {
+# now reverse %dh.  The "key" is now the "content signature" described above,
+# and the "value" is a directory name.  But there are potentially many
+# directories with the same signature, so the value is an *array of all
+# directory names* that have the same signature
+my $last_d = '';
+for my $d (sort keys %dh) {
     my $h = $dh{$d};
+    # these next 2 lines implement a fix for a special case where you've asked
+    # for a content check only, which means filepaths don't appear (see "only
+    # hash" comment above).  If you then have a directory foo/bar, and bar
+    # does not have any siblings, then "foo" and "foo/bar" will have the same
+    # signature (foo doesn't have any *files* outside of foo/bar).  In that
+    # case they appear to be duplicates of each other, plus other knock-on
+    # effects.  So we skip foo/bar if foo has already been seen *and* they
+    # have the same signature
+    next if $dco and index($d, "$last_d/") == 0 and $h eq $dh{$last_d};
+    $last_d = $d;
     push @{ $hd{$h} }, $d;
 }
 
@@ -97,16 +113,18 @@ sub linecount {
 }
 filter_print($_) for grep { @{ $hd{$_} } > 1 } sort { linecount($b) <=> linecount($a) or $a cmp $b } keys %hd;
 # ^^^^ 3 ^^^^                   ^^^^ 2 ^^^^                      ^^^^ 1 ^^^^
-# 1.    take the keys of hd (i.e., the "content" in our parlance, and sort
+# 1.    take the keys of hd (i.e., the "signature" in our parlance, and sort
 #       them by linecount (i.e., number of files)
 # 2.    eliminate the ones where the *value* (i.e., the array of directory
-#       names that have this specific content) is a singleton (no duplicates!)
+#       names that have this specific signature) is a singleton (no
+#       duplicates!)
 # 3.    finally, print each set of duplicates, but filtered (see below)
 
 # filter_print basically says if "a/b" is printed, then any "a/b/ANYTHING"
 # after that will not be printed
 sub filter_print {
-    my @d = grep { !seen($_) } sort @{ $hd{$_} };
+    my $h = shift;
+    my @d = grep { !seen($_) } sort @{ $hd{$h} };
     return unless @d;
     say "# " . linecount($dh{ $d[0] }) . " files";
     say join ("\n", @d);
@@ -116,7 +134,7 @@ sub filter_print {
 sub seen {
     my $x = shift;
     for my $k (keys %seen) {
-        return 1 if index($x, $k) == 0;
+        return 1 if index($x, "$k/") == 0;
     }
     $seen{$x}++;
     return 0;
