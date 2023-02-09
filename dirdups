@@ -1,0 +1,71 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+use 5.10.0;
+
+use Data::Dumper;
+
+# find duplicate DIRECTORIES, not files
+
+# TODO: output format may need some attention
+
+# usage:
+#   dirdups dir1 dir2 | dirdups
+# the first run "collects" the hashes, the second "reports" the duplicates
+
+# you can run the "collect" separately on separate directories and concatenate
+# the outputs if you need to do it that way
+
+# quirk: all top level directory names need to be different.  TODO fix this by
+# using a handle of some kind for each "collection".  This will be *required*
+# if we ever want to compare the same directory on two different machines
+# (collect hashed on machine A, bring the file over to machine B, collect
+# hashes on machine B, then do the reporting on the combined output file).
+
+# directories have to match in both filenames *and* file content.  If you want
+# to match only filenames pass "-f" to the "reporting" run.  If you want to
+# match only file content pass "-c".  Do not pass both; results are undefined.
+
+# also, only pass directory names; results are undefined if you pass filenames
+# (especially filenames in the *current* directory)
+
+my ($dno, $dco);    # duplicate names/content only
+( $ARGV[0] || '') eq '-n' and shift and $dno++;
+( $ARGV[0] || '') eq '-c' and shift and $dco++;
+
+if (@ARGV) {
+    exec("find " . join(" ", @ARGV) . " -type f -print0 | xargs -0 b3sum")
+    # if HDD (not SSD), may be useful to add "--num-threads 1" to the b3sum command
+}
+
+my %dh;     # dir hashes
+
+$ENV{LANG} = "C";
+@ARGV = ("sort -k2 |");
+@ARGV = ("sort |") if $dco;
+
+while (<>) {
+    chomp;
+    my ($h, $f) = split;
+    while ($f =~ m(/)) {
+        $f =~ s(/([^/]+$))();
+        if ($dco) {
+            $dh{$f} .= "$h\n";
+        } elsif ($dno) {
+            $dh{$f} .= "$1\n";
+        } else {
+            $dh{$f} .= "$h $1\n";
+        }
+    }
+}
+
+my %hd;
+for my $d (keys %dh) {
+    my $h = $dh{$d};
+    push @{ $hd{$h} }, $d;
+}
+
+sub linecount {
+    return $_[0] =~ tr /\n//;
+}
+say Dumper map { [ sort @{ $hd{$_} } ] } grep { @{ $hd{$_} } > 1 } sort { linecount($b) <=> linecount($a) or $a cmp $b } keys %hd;
