@@ -1,0 +1,146 @@
+#!/usr/bin/perl
+
+# WARNING: THIS PROGRAM HAS BEEN ARCHIVED
+# please see the new version (same name) for a much better and simpler program
+# that makes use of `tlsh`
+
+use warnings;
+use strict;
+use 5.10.0;
+
+use Data::Dumper;
+
+# find duplicate DIRECTORIES, not files
+
+# usage:
+#   dirdups dir1 dir2 | dirdups
+# the first run "collects" the hashes, the second "reports" the duplicates
+
+# directories have to match in both filenames *and* file content.  If you want
+# to match only filenames pass "-f" to the "reporting" run.  If you want to
+# match only file content pass "-c".  Do not pass both; results are undefined.
+
+# can also be used like this:
+#   # first collect from multiple directories into one file
+#   dirdups dir1 >  /tmp/dirdups.out
+#   dirdups dir2 >> /tmp/dirdups.out        # note the ">>"
+#   [...more such dirdups...]
+#   # then run the reporting code on the combined output file
+#   dirdups < /tmp/dirdups.out | vim -
+# this can be done across machines also, but see warning #2 below
+
+# WARNINGS
+
+# 1. only pass directory names; results are undefined if you pass filenames
+#    (especially filenames in the *current* directory)
+
+# 2. you can run the "collect" separately on separate directories and
+#    concatenate the outputs if you need to do it that way, BUT: all the top
+#    level directory names need to be different!  On the same machine this is
+#    not an issue but suppose you want to collect hashes on machine A, bring
+#    the file over to machine B, collect hashes on machine B *for the same
+#    directory*, then do the reporting on the combined output file, this will
+#    fail.
+#
+#    current workarounds:
+#    - manually edit the output file from machine A to prefix each path with "A/"
+#    - or, just create a symlink on machine A (ln -sf my/dir A-my-dir) then
+#      run dirdups on "A-my-dir/" (note the trailing slash)
+
+my ($dno, $dco);    # duplicate names/content only
+( $ARGV[0] || '') eq '-n' and shift and $dno++;
+( $ARGV[0] || '') eq '-c' and shift and $dco++;
+
+if (@ARGV) {
+    exec("find " . join(" ", @ARGV) . " -type f -print0 | xargs -0 b3sum")
+    # if HDD (not SSD), may be useful to add "--num-threads 1" to the b3sum command
+}
+
+my %dh;     # directory name => contents
+my %hd;     # contents => directory name
+my %seen;
+
+$ENV{LANG} = "C";
+@ARGV = ("sort -k2 |");
+@ARGV = ("sort |") if $dco;
+
+while (<>) {
+    chomp;
+    my ($h, $fl) = split;
+    my $fr = '';
+    # $fl . $fr == original filename at all times.  Each time round the loop,
+    # the last component of fl moves to the beginning of fr
+    while ($fl =~ m(/)) {
+        $fl =~ s(/([^/]+$))();
+        $fr = ( $fr ? "$1/$fr" : $1 );
+        # we said "dh" is "directory name => contents", but the "contents"
+        # could be both pathname *and* hash, only pathname, or only hash:
+        if ($dco) {
+            # only hash
+            $dh{$fl} .= "$h\n";
+        } elsif ($dno) {
+            # only pathname
+            $dh{$fl} .= "$fr\n";
+        } else {
+            # both
+            $dh{$fl} .= "$h $fr\n";
+        }
+        # it helps if think of this concatenated value as the "content
+        # signature" of the directory, which in subsequent comments below we
+        # call "signature"
+    }
+}
+
+# now reverse %dh.  The "key" is now the "content signature" described above,
+# and the "value" is a directory name.  But there are potentially many
+# directories with the same signature, so the value is an *array of all
+# directory names* that have the same signature
+my $last_d = '';
+for my $d (sort keys %dh) {
+    my $h = $dh{$d};
+    # these next 2 lines implement a fix for a special case where you've asked
+    # for a content check only, which means filepaths don't appear (see "only
+    # hash" comment above).  If you then have a directory foo/bar, and bar
+    # does not have any siblings, then "foo" and "foo/bar" will have the same
+    # signature (foo doesn't have any *files* outside of foo/bar).  In that
+    # case they appear to be duplicates of each other, plus other knock-on
+    # effects.  So we skip foo/bar if foo has already been seen *and* they
+    # have the same signature
+    next if $dco and index($d, "$last_d/") == 0 and $h eq $dh{$last_d};
+    $last_d = $d;
+    push @{ $hd{$h} }, $d;
+}
+
+# linecount is a crude way of counting how many files (not directories, just
+# files) are in a directory, by counting newlines in the output of b3sum
+sub linecount {
+    return $_[0] =~ tr /\n//;
+}
+filter_print($_) for grep { @{ $hd{$_} } > 1 } sort { linecount($b) <=> linecount($a) or $a cmp $b } keys %hd;
+# ^^^^ 3 ^^^^                   ^^^^ 2 ^^^^                      ^^^^ 1 ^^^^
+# 1.    take the keys of hd (i.e., the "signature" in our parlance, and sort
+#       them by linecount (i.e., number of files)
+# 2.    eliminate the ones where the *value* (i.e., the array of directory
+#       names that have this specific signature) is a singleton (no
+#       duplicates!)
+# 3.    finally, print each set of duplicates, but filtered (see below)
+
+# filter_print basically says if "a/b" is printed, then any "a/b/ANYTHING"
+# after that will not be printed
+sub filter_print {
+    my $h = shift;
+    my @d = grep { !seen($_) } sort @{ $hd{$h} };
+    return unless @d;
+    say "# " . linecount($dh{ $d[0] }) . " files";
+    say join ("\n", @d);
+    say "";
+}
+
+sub seen {
+    my $x = shift;
+    for my $k (keys %seen) {
+        return 1 if index($x, "$k/") == 0;
+    }
+    $seen{$x}++;
+    return 0;
+}
