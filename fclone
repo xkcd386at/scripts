@@ -1,0 +1,70 @@
+#!/bin/bash
+# set -x
+export PS4='`[[ $? == 0 ]] || echo "\e[1;31;40m($?)\e[m\n "`:.$LINENO:'
+
+usage() {
+    echo >&2 "$@"
+    cat <<-EOF >&2
+	Usage:
+
+	    fclone copy|sync path1 path2
+
+	where path1 and path2 can be local or remote (e.g., Downloads, or
+	server:Downloads)
+
+	If you are currently using ssh, converting an ssh host entry in
+	~/.ssh/config into an rclone remote in ~/.config/rclone/rclone.conf is not
+	that hard.  The general template for keyed access with ssh-agent is:
+
+	    [remotename]
+	    type = sftp
+	    user = bob
+	    host = 192.168.1.1
+	    port = 2222     # only needed if it is not 22
+
+	However, be aware that rclone does have a few minus points:
+	-   rclone does NOT do rsync-style delta xfr
+	-   rclone does NOT handle metadata for directories, only files (even that
+	    only when the -M flag is used); do not use to copy "system" files
+
+	EOF
+    exit 1
+}
+
+[[ -z $1 ]] && usage
+
+# expand given path to one or more dirs or files
+expand_path() {
+    # put in whatever you want, except "--multi"
+    export FZF_DEFAULT_OPTS="--exact --no-sort --reverse --info=inline"
+    [[ ${1:-} == -m ]] && {
+        shift
+        FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --multi"
+    }
+
+    if [[ $1 =~ ^([a-z0-9_-]+:)(.*)$ ]]; then
+        remote=${BASH_REMATCH[1]}
+        path="${BASH_REMATCH[2]}"
+    else
+        remote=''
+        path="$1"
+    fi
+
+    bindd="--bind=ctrl-d:reload(rclone lsf -R --dirs-only  ${remote}$path)"
+    bindf="--bind=ctrl-f:reload(rclone lsf -R --files-only ${remote}$path)"
+
+    if [[ $FZF_DEFAULT_OPTS =~ multi ]]; then
+        rclone lsf -R --skip-links --dirs-only "${remote}$path" |
+            fzf "$bindd" "$bindf" --header="select one or more source dirs or files; use ctrl-d/f to switch"
+    else
+        rclone lsf -R --skip-links --dirs-only "${remote}$path" |
+            fzf "$bindd"          --header="select ONE destination directory"
+    fi
+}
+
+op=$1; shift        # either copy or sync, nothing else (later we may add "move")
+[[ $op =~ ^(copy|sync)$ ]] || usage "Only copy or sync allowed"
+
+DEST="$2/$(expand_path $2)"
+
+expand_path -m $1 | sed -e 's,/$,/**,' | rclone $op --stats 100ms -P --include-from=- $1 "$DEST"
