@@ -1,0 +1,81 @@
+#!/bin/bash
+set -o pipefail
+# set -x
+export PS4='`[[ $? == 0 ]] || echo "\e[1;31;40m($?)\e[m\n "`:.$LINENO:'
+
+[[ -z $1 ]] && {
+    cat <<-EOF >&2
+	warning: no error checking for arguments
+	Usage:
+
+	    cd /local/directory
+	        THEN
+	    rfync hostname get remote-base-dir
+	        OR
+	    rfync hostname put remote-base-dir
+
+	the "remote-base-dir" is just because I usually only have a few
+	easy-to-type directories on the remote, but I guess I could fuzzy search
+	*that* also...
+	EOF
+    exit 1
+}
+
+# put in whatever you want, except "--multi"
+export FZF_DEFAULT_OPTS="--exact --no-sort --reverse --info=inline"
+
+sel_l() {
+    [[ ${1:-} == -m ]] && {
+        shift
+        FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --multi"
+    }
+    bindd="--bind=ctrl-d:reload(find . -type d | sort -f)"
+    bindf="--bind=ctrl-f:reload(find . -type f | sort -f)"
+    [[ $op == get ]] && find . -type d | fzf                   --header="select local destination"
+    [[ $op == put ]] && find . -type d | fzf "$bindd" "$bindf" --header="select local source files or directories; use ctrl-d/f to switch"
+}
+
+sel_r() {
+    [[ ${1:-} == -m ]] && {
+        shift
+        FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --multi"
+    }
+    bindd="--bind=ctrl-d:reload(ssh $host 'cd $rembase; find . -type d' | sort -f)"
+    bindf="--bind=ctrl-f:reload(ssh $host 'cd $rembase; find . -type f' | sort -f)"
+    [[ $op == put ]] && ssh $host "cd '$rembase'; find . -type d" | fzf                   --header="select REMOTE destination"
+    [[ $op == get ]] && ssh $host "cd '$rembase'; find . -type d" | fzf "$bindd" "$bindf" --header="select REMOTE source files or directories; use ctrl-d/f to switch"
+}
+
+get() {
+    echo >&2 "NOTE: add '--delete' if needed"
+    set -x
+    printf "%s\n" "${rfs[@]}" | rsync -avP -r --files-from - "$host:$rembase" "$ld"
+}
+
+put() {
+    echo >&2 "NOTE: add '--delete' if needed"
+    set -x
+    rsync -avP -R --rsync-path="cd '$rembase' && rsync" "${lfs[@]}" "$host:$rd"
+}
+
+# my hostnames are short enough I can just type them in as arg-1
+host=$1
+op=$2
+rembase=$3
+
+case $op in
+    get )
+        ld=`sel_l`
+        [[ -z $ld       ]] && exit 2
+        mapfile -t rfs < <(sel_r -m)
+        [[ -z ${rfs[0]} ]] && exit 2
+        get
+        ;;
+    put )
+        rd=`sel_r`
+        [[ -z $rd       ]] && exit 2
+        mapfile -t lfs < <(sel_l -m)
+        [[ -z ${lfs[0]} ]] && exit 2
+        put
+        ;;
+esac
