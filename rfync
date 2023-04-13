@@ -1,4 +1,15 @@
 #!/bin/bash
+
+# WARNING
+
+# As of 2023-04 I have moved from this to `fclone` -- a similar tool that
+# targets rclone.  Rclone is NOT a perfect replacement for rsync (see comments
+# in `fclone` that describe the two biggest ones), but I have found that for
+# my most common use cases rclone's limitations don't matter, while it is much
+# faster.
+
+# YMMV :)
+
 set -o pipefail
 # set -x
 export PS4='`[[ $? == 0 ]] || echo "\e[1;31;40m($?)\e[m\n "`:.$LINENO:'

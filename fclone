@@ -48,8 +48,8 @@ bindf1="--bind=f1:execute(exec > /dev/tty ; exec 2>&1 fclone | less -c)"
 get_source_paths() {
     export FZF_DEFAULT_OPTS="--exact --no-sort --reverse --info=inline --multi"
 
-    bindd="--bind=ctrl-d:reload(rclone lsf -R --dirs-only  $1)"
-    bindf="--bind=ctrl-f:reload(rclone lsf -R --files-only $1)"
+    bindd="--bind=ctrl-d:reload(rclone lsf -R --dirs-only  \"$1\")"
+    bindf="--bind=ctrl-f:reload(rclone lsf -R --files-only \"$1\")"
     h=$(printf "$header" "$1")
     rclone lsf -R --skip-links --dirs-only "$1" |
         fzf "$bindf1" "$bindd" "$bindf" --expect 'esc,ctrl-r,ctrl-t,ctrl-c' --bind 'ctrl-a:select-all' --header "$h"
@@ -60,7 +60,7 @@ get_source_paths() {
 get_dest_path() {
     export FZF_DEFAULT_OPTS="--exact --no-sort --reverse --info=inline"
 
-    bindd="--bind=ctrl-d:reload(rclone lsf -R --dirs-only  $1)"
+    bindd="--bind=ctrl-d:reload(rclone lsf -R --dirs-only  \"$1\")"
     h=$(printf "$header" "$1")
     rclone lsf -R --skip-links --dirs-only "$1" |
         fzf "$bindf1" "$bindd"          --expect 'ctrl-t,ctrl-c' --header "$h"
@@ -86,7 +86,7 @@ ${blu}CTRL-R${rst} to switch to the selected directory and ${red}r${rst}eload; s
 ${blu}Esc${rst} to go back up one level
 ${blu}CTRL-C${rst} to abort"
 
-readarray -t sources < <(get_source_paths $1)
+readarray -t sources < <(get_source_paths "$1")
 while :; do
     if [[ ${sources[0]} == ctrl-r ]]; then
         set -- "$1"/"${sources[1]}"
@@ -96,7 +96,7 @@ while :; do
     else
         break
     fi
-    readarray -t sources < <(get_source_paths $1)
+    readarray -t sources < <(get_source_paths "$1")
 done
 
 for i in "${sources[@]}"; do echo "s=$i."; done
@@ -123,4 +123,4 @@ readarray -t dest < <(get_dest_path $DEST)
 printf "%s\n" "${sources[@]:1}" |
     sed -e 's,/$,/**,' |
     tee >(cat >&2) |
-    { set -x; rclone $op --stats 100ms -P --include-from=- --create-empty-src-dirs $1 "$DEST"; }
+    { set -x; rclone $op --stats 100ms -P --include-from=- --create-empty-src-dirs "$1" "$DEST"; }
