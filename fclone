@@ -3,14 +3,15 @@
 export PS4='`[[ $? == 0 ]] || echo "\e[1;31;40m($?)\e[m\n "`:.$LINENO:'
 
 usage() {
-    echo >&2 "$@"
+    printf >&2 "WARNING: %s\n\n" "$*"
     cat <<-EOF >&2
 	Usage:
 
 	    fclone copy|sync path1 path2
 
-	where path1 and path2 can be local or remote (e.g., Downloads, or
-	server:Downloads)
+	where path1 and path2 can be local or remote, e.g., Downloads, or
+	server:Downloads.  (However, if you want to specify the root of a remote
+	server as the destination, please use "server:." instead of "server:")
 
 	If you are currently using ssh, converting an ssh host entry in
 	~/.ssh/config into an rclone remote in ~/.config/rclone/rclone.conf is not
@@ -65,6 +66,8 @@ expand_path() {
 op=$1; shift        # either copy or sync, nothing else (later we may add "move")
 [[ $op =~ ^(copy|sync)$ ]] || usage "Only copy or sync allowed"
 
+# edge case...
+[[ $2 =~ ^[a-z0-9_-]+:$ ]] && usage "Please use '$2.' instead of '$2' if no additional path component is required"
 DEST="$2/$(expand_path $2)"
 
-expand_path -m $1 | sed -e 's,/$,/**,' | rclone $op --stats 100ms -P --include-from=- $1 "$DEST"
+expand_path -m $1 | sed -e 's,/$,/**,' | tee >(cat >&2) | { set -x; rclone $op --stats 100ms -P --include-from=- $1 "$DEST"; }
