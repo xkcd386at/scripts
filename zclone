@@ -12,7 +12,7 @@ usage() {
     cat <<-EOF >&2
 	Usage:
 
-	    fclone copy|sync path1 path2
+	    zclone copy|sync path1 path2
 
 	where path1 and path2 can be local or remote, e.g., Downloads, or
 	server:Downloads.  (However, if you want to specify the root of a remote
@@ -41,7 +41,7 @@ usage() {
 
 # ----------------------------------------------------------------------
 
-bindf1="--bind=f1:execute(exec > /dev/tty ; exec 2>&1 fclone | less -c)"
+bindf1="--bind=f1:execute(exec > /dev/tty ; exec 2>&1 zclone | less -c)"
 
 # ----------------------------------------------------------------------
 
@@ -99,7 +99,7 @@ while :; do
     readarray -t sources < <(get_source_paths "$1")
 done
 
-for i in "${sources[@]}"; do echo "s=$i."; done
+for i in "${sources[@]}"; do echo "(s=$i)"; done
 [[ ${sources[0]} == ctrl-c ]] && exit
 [[ ${sources[0]} == ctrl-t ]] && sources=("" "$1")
 [[ ${sources[1]} =~ ^$     ]] && exit
