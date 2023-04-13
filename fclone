@@ -2,6 +2,11 @@
 # set -x
 export PS4='`[[ $? == 0 ]] || echo "\e[1;31;40m($?)\e[m\n "`:.$LINENO:'
 
+red="`git config --get-color '' 'red bold'`";
+grn="`git config --get-color '' 'green bold'`";
+blu="`git config --get-color '' 'blue bold'`";
+rst="`git config --get-color '' 'reset'`";
+
 usage() {
     printf >&2 "WARNING: %s\n\n" "$*"
     cat <<-EOF >&2
@@ -34,40 +39,88 @@ usage() {
 
 [[ -z $1 ]] && usage
 
-# expand given path to one or more dirs or files
-expand_path() {
-    # put in whatever you want, except "--multi"
-    export FZF_DEFAULT_OPTS="--exact --no-sort --reverse --info=inline"
-    [[ ${1:-} == -m ]] && {
-        shift
-        FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --multi"
-    }
+# ----------------------------------------------------------------------
 
-    if [[ $1 =~ ^([a-z0-9_-]+:)(.*)$ ]]; then
-        remote=${BASH_REMATCH[1]}
-        path="${BASH_REMATCH[2]}"
-    else
-        remote=''
-        path="$1"
-    fi
+bindf1="--bind=f1:execute(exec > /dev/tty ; exec 2>&1 fclone | less -c)"
 
-    bindd="--bind=ctrl-d:reload(rclone lsf -R --dirs-only  ${remote}$path)"
-    bindf="--bind=ctrl-f:reload(rclone lsf -R --files-only ${remote}$path)"
+# ----------------------------------------------------------------------
 
-    if [[ $FZF_DEFAULT_OPTS =~ multi ]]; then
-        rclone lsf -R --skip-links --dirs-only "${remote}$path" |
-            fzf "$bindd" "$bindf" --header="select one or more source dirs or files; use ctrl-d/f to switch"
-    else
-        rclone lsf -R --skip-links --dirs-only "${remote}$path" |
-            fzf "$bindd"          --header="select ONE destination directory"
-    fi
+get_source_paths() {
+    export FZF_DEFAULT_OPTS="--exact --no-sort --reverse --info=inline --multi"
+
+    bindd="--bind=ctrl-d:reload(rclone lsf -R --dirs-only  $1)"
+    bindf="--bind=ctrl-f:reload(rclone lsf -R --files-only $1)"
+    h=$(printf "$header" "$1")
+    rclone lsf -R --skip-links --dirs-only "$1" |
+        fzf "$bindf1" "$bindd" "$bindf" --expect 'esc,ctrl-r,ctrl-t,ctrl-c' --bind 'ctrl-a:select-all' --header "$h"
 }
 
-op=$1; shift        # either copy or sync, nothing else (later we may add "move")
-[[ $op =~ ^(copy|sync)$ ]] || usage "Only copy or sync allowed"
+# ----------------------------------------------------------------------
+
+get_dest_path() {
+    export FZF_DEFAULT_OPTS="--exact --no-sort --reverse --info=inline"
+
+    bindd="--bind=ctrl-d:reload(rclone lsf -R --dirs-only  $1)"
+    h=$(printf "$header" "$1")
+    rclone lsf -R --skip-links --dirs-only "$1" |
+        fzf "$bindf1" "$bindd"          --expect 'ctrl-t,ctrl-c' --header "$h"
+}
+
+# ----------------------------------------------------------------------
+
+op=$1; shift
+[[ $op =~ ^(copy|sync|move)$ ]] || usage "Only copy, sync, or move allowed"
 
 # edge case...
 [[ $2 =~ ^[a-z0-9_-]+:$ ]] && usage "Please use '$2.' instead of '$2' if no additional path component is required"
-DEST="$2/$(expand_path $2)"
+DEST="$2"
 
-expand_path -m $1 | sed -e 's,/$,/**,' | tee >(cat >&2) | { set -x; rclone $op --stats 100ms -P --include-from=- $1 "$DEST"; }
+# ----------------------------------------------------------------------
+
+header="${blu}SOURCE SELECTION${rst}
+${blu}F1${rst} for help
+${blu}CTRL-T${rst} to use ${grn}%s${rst} as the source
+otherwise select one or more dirs or files using ${blu}TAB${rst} then hit ${blu}ENTER${rst} (${blu}CTRL-A${rst} will select all)
+${blu}CTRL-D/F${rst} to switch between ${red}d${rst}irectories and ${red}f${rst}iles
+${blu}CTRL-R${rst} to switch to the selected directory and ${red}r${rst}eload; see help for more info on this
+${blu}Esc${rst} to go back up one level
+${blu}CTRL-C${rst} to abort"
+
+readarray -t sources < <(get_source_paths $1)
+while :; do
+    if [[ ${sources[0]} == ctrl-r ]]; then
+        set -- "$1"/"${sources[1]}"
+        set -- "${1%/}"
+    elif [[ ${sources[0]} == esc ]]; then
+        set -- "${1%/*}"
+    else
+        break
+    fi
+    readarray -t sources < <(get_source_paths $1)
+done
+
+for i in "${sources[@]}"; do echo "s=$i."; done
+[[ ${sources[0]} == ctrl-c ]] && exit
+[[ ${sources[0]} == ctrl-t ]] && sources=("" "$1")
+[[ ${sources[1]} =~ ^$     ]] && exit
+
+# ----------------------------------------------------------------------
+
+header="current path: ${red}$DEST${rst}
+${blu}DESTINATION SELECTION${rst}
+${blu}F1${rst} for help
+${blu}CTRL-T${rst} to use ${grn}%s${rst} as the destination
+otherwise select a destination directory and hit ${blu}ENTER${rst}
+${blu}Esc${rst} or ${blu}CTRL-C${rst} to abort"
+
+readarray -t dest < <(get_dest_path $DEST)
+
+[[ ${dest[0]} == ctrl-c ]] && exit
+[[ ${dest[0]} == ctrl-t ]] && DEST="$DEST" || DEST="$DEST/${dest[1]}"
+
+# ----------------------------------------------------------------------
+
+printf "%s\n" "${sources[@]:1}" |
+    sed -e 's,/$,/**,' |
+    tee >(cat >&2) |
+    { set -x; rclone $op --stats 100ms -P --include-from=- --create-empty-src-dirs $1 "$DEST"; }
