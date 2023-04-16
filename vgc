@@ -1,0 +1,82 @@
+#!/bin/bash
+
+# vgc -- rg with context on STDIN on $PWD, with help
+# usage: pipe | vgc pattern
+#    OR just:   vgc pattern
+
+# set -x
+export PS4=':.$LINENO:'
+
+# ----------------------------------------------------------------------
+# preview (invoked by fzf)
+
+# For the life of me I could not figure out how to roll this functionality
+# directly into the `--preview=` option!  Oh well, this works fine too.
+[[ $1 == --preview ]] && {
+    shift
+    q="$*"
+    q=${q// /\\|}
+    grep --color=always -i -e '$' -e "$q" -e 20..-..-.. -e XXX -e TODO -e NOTE -e WARNING -e OBSOLETE -e ERROR
+    # I'm sure this code won't survive past 2099.  I know *I* won't :-)
+    exit 0
+}
+
+# ----------------------------------------------------------------------
+# main
+
+q="$1"
+c=5
+
+_vgc () {
+    : "c is for context"
+    : "change the query and hit enter to restart with the new query string"
+    : "starts with a context of 5; type a number and hit enter to change it (query string will revert to $1)"
+    rg -n -C$c "$q" |
+        perl -pe 's/^--\n/\0/' |
+        fzf \
+            -q "$q" \
+            --read0 \
+            --preview-window=wrap:top:75% \
+            --preview="echo {} | $0 --preview {q}" \
+            --print-query \
+            --expect "enter,esc,ctrl-e" \
+            --header "enter to accept new query and restart
+escape to exit without doing anything
+ctrl-e to exit and open vim quickfix list"
+}
+
+[[ -t 0 ]] || {
+    VGCTMPF=$HOME/tmp/vgc.$$
+    rm -f $VGCTMPF
+    cat > $VGCTMPF
+    trap "rm -f $VGCTMPF" 0
+}
+
+while :; do
+    if [[ -t 0 ]]; then
+        r=$(_vgc)                       # assumed search all of PWD
+    else
+        r=$(cat $VGCTMPF | _vgc)
+    fi
+
+    newq=$(echo "$r" | head -1)
+    [[ $newq =~ ^[1-9][0-9]*$ ]] && c=$newq || q="$newq"
+
+    k=$(echo "$r" | sed -ne '2p')
+    [[ $k == esc ]] && exit             # user hit esc, exit
+    [[ $k == enter ]] && continue       # user hit enter, loop
+    [[ $k == ctrl-e ]] && {             # user hit ctrl-e, open vim quickfix list
+        # make a vim search pattern out of the first line of $x (which is the "query",
+        # due to using "--print-query" in the fzf command)
+        q=$(echo "$r" | head -1 | tr ' ' '|')
+
+        if [[ -t 0 ]]; then
+            # start vim with the quickfix list set to "$r".  \v is "very
+            # magic"; allows '|' to act as alternation in regex
+            vim -q <(echo "$r"|tail +2|grep -E ":[0-9]+:") -c copen -c "let @/='\v$q'"
+        else
+            # stdin was a pipe
+            echo "$r"|tail +3
+        fi
+    }
+done
