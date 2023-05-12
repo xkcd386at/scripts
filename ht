@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# filter to create and run arbitrary commbination of head and tail invocations
+# to carve pieces out of a file
+
+# line based only; in fact we *only* use the "-n" option of head and tail
+
+# example usages:
+
+#           $ seq 10 | ./ht h 4                     $ seq 10 | ./ht t 4
+#           1                                       7
+#           2                                       8
+#           3                                       9
+#           4                                       10
+#           $ seq 10 | ./ht h -4                    $ seq 10 | ./ht t +4
+#           1                                       4
+#           2                                       5
+#           3                                       6
+#           4                                       7
+#           5                                       8
+#           6                                       9
+#                                                   10
+
+#           $ seq 10 | ./ht h 4 t 2                 $ seq 10 | ./ht t 4 h 2 
+#           3                                       7
+#           4                                       8
+
+#           $ seq 10 | ./ht h -4 t 4                $ seq 10 | ./ht t +4 h 4
+#           3                                       4
+#           4                                       5
+#           5                                       6
+#           6                                       7
+
+cmd=""
+while [[ -n "$1" ]]; do
+    case $1 in
+        h )
+            [[ -z $cmd ]] && cmd="head -n $2" || cmd="$cmd | head -n $2"
+            ;;
+        t )
+            [[ -z $cmd ]] && cmd="tail -n $2" || cmd="$cmd | tail -n $2"
+            ;;
+        * )
+            echo "huh?" >&2; exit 1
+            ;;
+    esac
+    shift;shift
+done
+
+eval "$cmd"
