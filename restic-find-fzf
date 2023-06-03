@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# Usage:
+#   restic-find-fzf reponame patt
+#   restic-find-fzf reponame .                  # to see ALL files in ALL snapshots
+#
+# supply other filters after the repo name and the pattern if needed; e.g. "--tag foo -O 2023-01-01" etc
+#   restic-find-fzf reponame . --tag foo        # to see ALL files in snapshots tagged "foo"
+
+# (you get the idea by now, but here are some more examples)
+#   restic-find-fzf reponame patt --tag foo
+#   restic-find-fzf reponame patt -O 2023-01-01
+#   restic-find-fzf reponame patt --tag foo --tag bar -O 2023-01-01
+
+[[ -z $RESTIC_PASSWORD ]] &&
+[[ -z $RESTIC_PASSWORD_FILE ]] &&
+[[ -z $RESTIC_PASSWORD_COMMAND ]] && { echo >&2 "dont have a password to use..."; exit 1; }
+
+repo="$1"
+patt="$2"
+
+sn=''
+out=$(
+    restic -r "$repo" find -i -l "*$patt*" "$@" | while read x
+    do
+        [[ -z $x ]] && continue
+        if [[ $x =~ ^Found.matching.entries ]]; then
+            sn=$(echo $x|cut -f6 -d' ')
+            continue
+        fi
+        printf "%s\t" $sn $(echo $x | cut -d' ' -f 4-7); echo
+    done | fzf -m
+)
+
+[[ -n $out ]] || exit 0
+
+echo "$out" | while read sn _ _ _ fn
+do
+    echo "restoring '$fn' from '$sn'..."
+    restic -r "$repo" restore -t . -i "$fn" $sn
+done
