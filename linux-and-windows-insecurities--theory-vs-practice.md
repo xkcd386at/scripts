@@ -105,6 +105,10 @@ This section has no more entries.  Some "also ran"s:
 
 # out of scope, but interesting nevertheless
 
+*   2023-07-11 <https://www.theregister.com/2023/07/11/microsoft_patch_tuesday/>
+    *   out of scope because it is MS Office, but it's a big 0-day under active exploitation
+    *   >   Crucially, there is no patch yet for CVE-2023-36884, and one may be provided via an emergency update or future scheduled Patch Tuesday, we\'re told. Microsoft went public early with some details of the flaw because a Russian crew, dubbed Storm-0978, apparently used the vulnerability to [target attendees](https://www.microsoft.com/en-us/security/blog/2023/07/11/storm-0978-attacks-reveal-financial-and-espionage-motives/) of the ongoing [NATO summit](https://www.nato.int/cps/en/natohq/news_217051.htm) in Lithuania on Russia\'s invasion of Ukraine.
+
 *   2022-05-22: <https://www.bleepingcomputer.com/news/security/fake-windows-exploits-target-infosec-community-with-cobalt-strike/>
     *   I'm marking this out of scope because it is targeting security researchers, not everyone
     *   including it only for the irony value :)
