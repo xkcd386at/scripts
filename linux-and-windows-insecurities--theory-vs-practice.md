@@ -25,6 +25,15 @@ Other notable responses to that page:
 
 *   <https://www.reddit.com/r/PrivacyGuides/comments/v1luh1/looking_for_more_context_and_viewpoints_on/iaodpdn/> is easily one of the best, most cogent, and cleanly written, responses to this question -- hats off !)
 
+
+# bonus link
+
+<https://www.reddit.com/r/linux/comments/hzyu8j/comment/fznndez/> is from Jason Donenfeld, the guy who created the wireguard VPN.  He describes the problems in trying to port it to Windows in language that... well here is the juiciest quote:
+
+>   layers and layers of complexity, and so many competing ideas and modalities all put into adjacent and overlapping libraries, with functionality duplicated and contradictory all over the place, and a million ways that different Microsoft binaries do different things, and highly complex state machines with multiple interlocking moving parts, and endless abstractions upon abstractions, and separations upon separations combined with layering violation upon layering violation, and a supremely interesting kernel design
+
+So much for the "theory" of windows being better at security.
+
 ----
 
 # windows
