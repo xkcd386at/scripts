@@ -1,69 +1,85 @@
-#!/usr/bin/perl
-use warnings;
-use strict;
-use 5.10.0;
+#!/bin/bash
+# shopt -s inherit_errexit
+# set -euo pipefail
+# IFS=$'\n\t'
+# set -x
+export PS4='`[[ $? == 0 ]] || echo "\e[1;31;40m($?)\e[m\n "`:.$LINENO:'
+die() { echo >&2 "$*"; exit 1; }
+x() { set -x; "$@"; { set +x; } 2>/dev/null; }
 
-# usage:
-#   dirdups dir1 dir2 | (cd some-empty-directory; dirdups)
-#   cd some-empty-directory
-#   tlsh4 -xref -r . -T 100 | mlr -t -N put '$c=strlen($1); $d=strlen($2)' then sort -nr c,d then cut -x -f c,d
+[[ -z "${1:-}" ]] && {
+    echo >&2 "Usage:
+cd /tmp     # see TMPD below if you want to change it
+$0 dir1 dir2
+    OR
+$0 dir1 a > /tmp/1
+$0 dir2 b > /tmp/2
+$0 dups
 
-# unfortunately this means you need to install 3 packages:
-#   hashdeep (some distros have it as md5deep)
-#   miller
-#   tlsh (ubuntu has it as tlsh-tools)
-# if you don't find them in your distro, URLs are:
-#   https://github.com/jessek/hashdeep
-#   https://github.com/johnkerl/miller
-#   https://github.com/trendmicro/tlsh
+Output will open up in vim.  Lines will look like (tab-sep):
+    339             337             a/personal      337             b/personal
+    296             296             a/private       296             b/private
+normally f1 <= f2, <= f4 (you can't have more matches than there are files!)
+but if f1 > either f2 or f4, it means there are dups in that subdir
+"
+    exit
+}
 
-# The program takes the output of md5deep and creates *files* for each
-# directory.  For a directory called a/b it would create a file called a__b
-# which contains *just the hashes (sorted)* of every file within a/b (to any
-# depth, not just immediate).  This becomes a kind of "signature" for that
-# directory.  These files are placed in an empty directory (see "Usage"
-# comment at the top), then tlsh goes to work and decides how "far" these
-# files are from each other, with a threshold of 100 (0 is a perfect match).
-# Finally, miller sorts them in descending order of "length of filename" which
-# means a/b/c will sort before a/b, thus the highest level folders with the
-# best match will go to the end.
+# ----------------------------------------------------------------------
+export TMPD=/tmp
 
-use Data::Dumper;
-
-no strict 'refs';
-use FileCache;
+_b3() (
+    cd $1
+    find . -type f -print0 |
+        xargs -0 b3sum -l 16 |
+        sed -e 's/  /\t/' -e 's/\t\.\//\t'$2'\//' |
+        sort
+)
 
 # ----------------------------------------------------------------------
 
-if ( -t 0 and @ARGV ) {
-    my @dirs = @ARGV; @ARGV = ();
-    $ENV{LANG}="C";
-    open(STDOUT, "|-", "sort");
-    system(qw(md5deep -elr -of), @dirs);
-    close(STDOUT);
+if [[ -d ${2:-} ]]
+then
+    _b3 $1 a > /tmp/1
+    _b3 $2 b > /tmp/2
+elif [[ $2 =~ ^[ab]$ ]]
+then
+    _b3 $1 $2
+    exit
+elif [[ $1 == dups ]]
+then
+    :
+else
+    die '???'
+fi
 
-    exit;
-}
 
-# check if we are in an empty directory
-empty_or_die();
+# ----------------------------------------------------------------------
 
-while (<>) {
+join -j 1 -t $'\t' 1 2 | cut -f2,3 > 12
+cp 12 12o
+rm 12c
+
+while grep -e '^a/..*'$'\t''b/.' < 12 > 12ab
+do
+    sed -e 's,/[^/]*\t,\t,' -e 's,/[^/]*$,,' < 12ab > 12
+    cat 12 >> 12c
+    # wc 12 12o 12c
+    # vifm-pause
+done
+
+sort < 12c | uniq -c | sort -rn > 12cs
+cat 12cs | perl -n -E '
     chomp;
-    my ($hash, $file) = split ' ', $_, 2;
-    while ($file =~ s(/[^/]+$)()) {
-        my $f = "ddh-$file"; $f =~ s(/)(__)g;
-        cacheout $f;
-        say $f $hash;
+    die "BAD $_" unless m(^ *(\d+) *(a.*)\t(b.*));
+    $n = $1; $a = $2; $b = $3;
+    BEGIN {
+        local @ARGV = qw(1); @a = <>; chomp(@a);
+        local @ARGV = qw(2); @b = <>; chomp(@b);
     }
-}
-
-system "tlsh -xref -r . -T 100 | mlr --t2p -N put '\$c=strlen(\$1); \$d=strlen(\$2)' then sort -nr c,d then cut -x -f c,d";
-
-# ----------------------------------------------------------------------
-
-sub empty_or_die {
-    my $x = `ls -A | grep -c .`;
-    chomp $x;
-    die "$ENV{PWD} not empty" if $x;
-}
+    $ac = grep(/$a/, @a);
+    $bc = grep(/$b/, @b);
+    say "$n\t$ac\t$a\t$bc\t$b";
+    # say "possible duplicates in above dir(s)" if $n > $ac or $n > $bc;
+' > 12counts
+vim -c 'set ts=16' 12counts
