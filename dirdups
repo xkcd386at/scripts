@@ -9,24 +9,31 @@ x() { set -x; "$@"; { set +x; } 2>/dev/null; }
 
 [[ -z "${1:-}" ]] && {
     echo >&2 "Usage:
-cd /tmp     # see TMPD below if you want to change it
-$0 dir1 dir2
-    OR
-$0 dir1 a > /tmp/1
-$0 dir2 b > /tmp/2
-$0 dups
+
+    $0 dir1 dir2
+
+OR
+
+    $0 dir1 a > /tmp/1
+    $0 dir2 b > /tmp/2
+    cd /tmp
+    $0 dups
+
+NOTE: /tmp/1 and /tmp/2, are hardcoded
 
 Output will open up in vim.  Lines will look like (tab-sep):
     339             337             a/personal      337             b/personal
     296             296             a/private       296             b/private
 normally f1 <= f2, <= f4 (you can't have more matches than there are files!)
 but if f1 > either f2 or f4, it means there are dups in that subdir
+
+NOTE that this is not as useful as vifm :compare if there are lots of file and
+dir renames.
 "
     exit
 }
 
 # ----------------------------------------------------------------------
-export TMPD=/tmp
 
 _b3() (
     cd $1
@@ -56,9 +63,10 @@ fi
 
 # ----------------------------------------------------------------------
 
+cd /tmp
 join -j 1 -t $'\t' 1 2 | cut -f2,3 > 12
 cp 12 12o
-rm 12c
+rm -f 12c
 
 while grep -e '^a/..*'$'\t''b/.' < 12 > 12ab
 do
