@@ -1,41 +1,67 @@
 #!/bin/bash
 
-# Usage:
-#   restic-find-fzf reponame patt
-#   restic-find-fzf reponame .                  # to see ALL files in ALL snapshots
-#
-# supply other filters after the repo name and the pattern if needed; e.g. "--tag foo -O 2023-01-01" etc
-#   restic-find-fzf reponame . --tag foo        # to see ALL files in snapshots tagged "foo"
+# restic-find-fzf PATT [args]
 
-# (you get the idea by now, but here are some more examples)
-#   restic-find-fzf reponame patt --tag foo
-#   restic-find-fzf reponame patt -O 2023-01-01
-#   restic-find-fzf reponame patt --tag foo --tag bar -O 2023-01-01
+# Assumes RESTIC_REPOSITORY and RESTIC_PASSWORD (or RESTIC_PASSWORD_COMMAND) are set
 
-[[ -z $RESTIC_PASSWORD ]] &&
-[[ -z $RESTIC_PASSWORD_FILE ]] &&
-[[ -z $RESTIC_PASSWORD_COMMAND ]] && { echo >&2 "dont have a password to use..."; exit 1; }
+# Use 'restic find' + fzf to select and restore files 'patt' can be '.' or '/'
+# to see ALL files in ALL snapshots apart from the standard filters, 'restic
+# find' also has -O and -N; you can use them too, as well as other filters
+# like '--tag'.
 
-repo="$1"
-patt="$2"
+# As a special case, if STDOUT is not a terminal, it ignores any arguments and
+# filters provided and produces a full "find" output using "/" as the pattern.
+# You can save this in a local file and use it as STDIN at any time later.
+# This lets you look for files in a restic repo that is not actually available
+# (e.g., on a USB device not currently mounted), though in that case hitting
+# enter ("restore") won't do anything useful.
+
+# Files and directories are listed:
+# - reverse sorted (by date of snapshot)
+# - without duplicates (i.e., files that already showed up in a more recent
+#   snapshot won't show up again)
+
+# NOTE: To avoid complicating the code too much, only the first pattern is
+# converted to '*patt*' for your convenience.  If you want more patterns you
+# can add them by supplying them as '*patt2*' not just 'patt2'
+
+patt="$1"
+shift
+
+# stdout is not a terminal; create a full "find" output
+[[ -t 1 ]] || {
+    restic find -i -l /
+    exit
+}
 
 sn=''
 out=$(
-    restic -r "$repo" find -i -l "*$patt*" "$@" | while read x
-    do
-        [[ -z $x ]] && continue
-        if [[ $x =~ ^Found.matching.entries ]]; then
-            sn=$(echo $x|cut -f6 -d' ')
-            continue
+    (
+        if [[ -t 0 ]]; then
+            restic find -i -l "*$patt*" "$@"
+        else
+            cat
         fi
-        printf "%s\t" $sn $(echo $x | cut -d' ' -f 4-7); echo
-    done | fzf -m
+    ) |
+    perl -pe 'next unless /^Found.*snapshot (\S+) from (\S+ \S+)/; $_ = "$2 $1\n"; print STDERR "$2 $1\r" ' |
+    perl -00 -lne 'push @f, $_; END { @f = sort { $b cmp $a } @f; print for @f }' |
+    perl -lne 'print unless $seen{$_}++' |
+    perl -lne '
+        next unless /\S/;
+        if (/^(....-..-.. ..:..:..) (........)$/) {
+            $x = "$1\t$2";
+        } else {
+            s/^\S+ +\d+ +\d+ +//;
+            s/^(\d+) +(\S+ \S+) +/$1\t$2\t/;
+            print "$x\t$_";
+        }
+    ' | fzf -m | cut -f2,5
 )
 
 [[ -n $out ]] || exit 0
 
-echo "$out" | while read sn _ _ _ fn
+echo "$out" | while read sn fn
 do
     echo "restoring '$fn' from '$sn'..."
-    restic -r "$repo" restore -t . -i "$fn" $sn
+    x restic restore -t . -i "$fn" $sn
 done
