@@ -1,0 +1,370 @@
+# vim: ft=gitconfig
+# # TODO: cshatag
+
+# tip: a tool without a recipe must be installed using distro package manager
+
+# PREFERENCE ORDER
+#   1.  see warning below (flatpak IDs is not proof of provenance!)
+#   2.  if it is *verified*, flatpak is best for most GUI s/w
+#   3.  else, or next, is a binary or appimage from the official
+#       website/github (a la eget)
+#   4.  finally, distro packaging
+
+# WARNING: DON'T jump to install flatpak; make sure it is verified first.
+# This cannot be done by simply looking at the ID (E.g., filezilla looks like
+# having a typosquatted app ID, someone said on their forums!).  Instead,
+# check on https://flathub.org for a "verified" tick mark.  (In some cases you
+# may have to check the next item in the chain also).
+
+# WARNING: also check countries (e.g., lftp has a Russian author)
+
+[dirs]
+    # mans=/usr/local/man/man1
+    # bins=/var/local/bin
+    dir-mans=/tmp/tt/mans
+    dir-bins=/tmp/tt/bins
+
+[tags]
+
+    ## IMPORTANT: only tags whose names start with "tag-" are processed; the rest
+    ## are here just as a convenient place for me to keep various lists of tools
+    ##
+
+    ## tag-security -   TODO: checked more often; ideally with FORCE=1
+    ##                  TODO: also, add to this list; I'm sure there are more!
+    tag-security = age firefox gocryptfs keepassxc rclone restic
+
+    ## assumed      -   assumed already present (TODO: check all on first use)
+    assumed = fuser git killall openssl perl pgrep rsync sshd traceroute wget
+    # fuser (psmisc): could have checked for killall or pstree as well
+    # pgrep (procps): could have checked for free, pkill, top, uptime, w, or watch
+    # sshd (openssh/server)
+
+    ## manual       -   install manually as needed
+    manual = bind-plusplus dig host nslookup
+    manual = pandoc-plus-latex-texlive-beamer-etc
+    manual = xhost xrandr xwininfo zotero
+
+    ## tag-reqd     -   required on ALL systems (even endless/non-tech for me!)
+    tag-reqd = btop curl eget htmlq            # some of them have a bit of a catch-22 going on though!
+
+    tag-reqd = 7z age b3sum eget fclones fd fzf gdu gocryptfs gvim htmlq
+    tag-reqd = restic rg syncthing tmux vifm xclip xsel zstd
+    # required gui programs
+    tag-reqd = firefox kdeconnect keepassxc localsend mpv okular pqiv
+    tag-reqd = qownnotes recoll signal syncthing thunderbird vlc
+
+    ## flatpak      -   use "eeget list flatpak" to install/update.
+    ##      NOTE:       some flatpaks apps may really only be needed on
+    ##                  endless/non-tech (e.g., czkawka vs fclones on CLI)
+    ##      WARNING:    BE CAREFUL with "nonet-flatpak" list
+
+    # verified (ID verified from their websites)
+    flatpak = com.github.qarmin.czkawka
+    ;latpak = org.mozilla.firefox               # does not talk to keepassxc
+    flatpak = org.gimp.GIMP
+    ;latpak = org.keepassxc.KeePassXC           # does not talk to firefox
+    flatpak = org.localsend.localsend_app
+    flatpak = org.kde.okular
+    flatpak = io.github.peazip.PeaZip
+    flatpak = org.gnome.World.PikaBackup        # includes borg (wish it was restic but meh...)
+    flatpak = org.mozilla.Thunderbird
+    flatpak = io.github.mpobaschnig.Vaults      # wraps gocryptfs (install separately!)
+
+    # NOT verified, but may be safe if network access disabled
+    # WARNING: flatpak's local file restrictions don't seem to work
+    # consistently, so limiting *local* file access won't help
+    nonet-flatpak = org.qownnotes.QOwnNotes
+    nonet-flatpak = org.zotero.Zotero
+    nonet-flatpak = org.videolan.VLC
+    nonet-flatpak = io.mpv.Mpv
+
+    # NOT verified, but require network to function; beware!
+    ;flatpak = org.signal.Signal
+
+    ## tag-cli1     -   nice to have for endless, MUST have in normal linux
+
+    tag-cli1 = atop bandwhich bat cloc combine conky datamash diffpdf
+    # combine: could have been vidir or sponge too; they're all in "moreutils"
+    tag-cli1 = dust feedgnuplot ffmpeg flameshot gkrellm gnuplot
+    tag-cli1 = gron htop hyperfine iftop inotifywait iostat iotop
+    # iostat: also mpstat, pidstat, sar, sa1, sa2, sadc etc
+    tag-cli1 = jless jq libreoffice liferea lsof ltrace magick mlr
+    tag-cli1 = mplayer mupdf mupdf mutool mutt ncdu nethogs oathtool
+    tag-cli1 = pdf-presenter-console pqiv pv qpdf qrcp qrencode
+    tag-cli1 = rclone rg rlwrap smartctl smplayer socat sops strace
+    tag-cli1 = timeshift todotxt-cli traceroute trans vifm vim
+    # trans: translate-shell, usually
+    tag-cli1 = virt-manager watchexec whois xbacklight xdotool yggdrasil
+    tag-cli1 = yq yt-dlp zbarimg zsh
+
+    ## tag-cli2     -   nice to have for normal linux
+
+    tag-cli2 = aha axel dict ditaa exiftool exiftran exuberant-ctags
+    tag-cli2 = fgallery graphviz hashdeep jhead links links2 llgal lnav
+    tag-cli2 = lynx mc mediainfo ncat sqlite3 weasyprint wkhtmltopdf
+    tag-cli2 = wordnet words
+
+    ## tag-cli3     -   just a list; ignore for all practical purposes (may also
+    ##                  include programs I used to use heavily but no longer do)
+
+    tag-cli3 = glances highlight httpie lft meld mosh mtr nmap
+    tag-cli3 = perl-tidy proxychains-ng proxytunnel ps_mem
+    tag-cli3 = simplescreenrecorder slop sqlitebrowser squashfs
+    tag-cli3 = squashfs-tools ssdeep sshuttle stunnel tcpdump teip
+    tag-cli3 = tesseract-ocr tinyproxy tlsh tlsh-tools trickle units
+    tag-cli3 = unpaper vlock vmtouch wireshark xine-ui xxhash
+
+    # iperf3 -- bandwidth measurement tool
+    # lft and whob -- L4 trace and "likable whois client" (sic!)
+    # llgal -- gallery generator
+
+    ## tag-gui1/2/3 -   similar to cli
+    ##                  (though libreoffice should be on anyway)
+    tag-gui1 = conky gimp gkrellm
+
+    tag-gui2 = freemind libreoffice
+
+    tag-gui3 = dillo geeqie screenkey simplescreenrecorder slop
+    tag-gui3 = sqlitebrowser wireshark wordnet-browser xdot
+    # slop -- (screen recording?) queries for a selection from the user and prints the region to stdout
+
+# ----------------------------------------------------------------------
+
+[7z]
+    url = https://www.7-zip.org/a/7z2406-linux-x64.tar.xz
+    bin = -f 7zzs --to 7z
+
+[age]
+    url = FiloSottile/age
+    # YAAY! multiple files in one shot!
+    bin = -f age/age
+    bin = -f age-keygen
+
+[b3sum]
+    url = BLAKE3-team/BLAKE3
+    bin = --to b3sum
+    cmd = "ln b3sum b3"
+
+[bandwhich]
+    url = imsnif/bandwhich
+    opt = -a musl
+
+[bat]
+    url = sharkdp/bat
+    opt = -a musl
+    man = -f bat.1
+
+[btop]
+    # hooray for btop; the only one of top/atop/htop/glances that I can "eget"!
+    # NOTE: does not show USB disk activity separately
+    url = aristocratos/btop
+    bin = -f ./btop/bin/btop
+    # bit strange, this one; wouldn't work without the leading "./"
+
+[curl]
+    url = moparisthebest/static-curl
+    # got this URL from https://curl.se/download.html so it's OK
+    opt = -a amd64
+    bin = --to curl
+
+[dust]
+    url = bootandy/dust
+    opt = -a musl
+
+[eget]
+    url = zyedidia/eget
+    # eget has a man page but we don't need it, so comment it out
+    man = -f eget.1
+
+[fclones]
+    url = pkolaczk/fclones
+    opt = -a musl
+
+[fd]
+    url = sharkdp/fd
+    opt = -a musl
+    man = -f fd.1
+
+# The Firefox recipe is a bit harder than it should be; the main thing I can
+# see right now is that you need to be sure to clear out /tmp/eeget.root/ once
+# in a while -- if that dir ends up with two tar files the "tar -xf" will
+# fail.  (As it is, the eget step is a dummy; it produces a "firefox" which
+# then gets overwritten by a symlink).
+[firefox]
+    pre = curl -s -S 'https://download.mozilla.org/?product=firefox-latest-ssl&os=linux64&lang=en-US' | htmlq a -a href
+    url = dummy
+    cmd = "rm -rf packages/ff; mkdir -p packages/ff; tar -C packages/ff -xf $TMPD/firefox*.tar.bz2; ln -sf $PWD/packages/ff/firefox/firefox ."
+
+[fzf]
+    url = junegunn/fzf
+
+[gdu]
+    url = dundee/gdu
+    opt = -a amd64_static
+    # file is named "gdu_linux_amd64_static" or something; uggh!  So:
+    bin = --to gdu
+
+[gocryptfs]
+    url = rfjakob/gocryptfs
+    opt = -a static -a ^asc
+
+[gvim]
+    url = vim/vim-appimage
+    opt = -a GVim -a AppImage -a ^zsync
+    bin = --to vim
+    cmd = "chmod 755 vim; ln vim gvim"
+
+[htmlq]
+    url = mgdm/htmlq
+
+[jless]
+    url = PaulJuliusMartinez/jless
+
+[keepassxc]
+    pre = wget -O - https://keepassxc.org/download | htmlq  a -a href | grep -i appimage$
+    url = dummy # output of "pre" will become the URL
+    bin = --to keepassxc
+    cmd = chmod 755 keepassxc
+
+[lnav]
+    url = tstack/lnav
+
+[localsend]
+    url = localsend/localsend
+    opt = -a AppImage
+    bin = --to localsend
+    cmd = chmod 755 localsend
+
+[magick]
+    url = ImageMagick/ImageMagick
+    opt = -a gcc
+    bin = --to magick
+    cmd = chmod 755 magick
+
+[mlr]
+    url = johnkerl/miller
+    opt = -a tar.gz
+
+[ncdu]
+    # XXX update this URL once in a while; easier than over-engineering it!
+    url = https://dev.yorhel.nl/download/ncdu-2.4-linux-x86_64.tar.gz
+    # curiously, that's all we need; eget is quite happy to extract files from
+    # an arbitrary tar.gz file!
+
+[qownnotes]
+    url = pbek/QOwnNotes
+    opt = -a x86_64.AppImage
+    bin = --to qownnotes
+    cmd = chmod 755 qownnotes
+
+[qpdf]
+    url = qpdf/qpdf
+    opt = -a AppImage -a ^zsync
+    bin = --to qpdf
+    cmd = chmod 755 qpdf
+
+[rclone]
+    url = rclone/rclone
+    opt = -a zip
+    man = -f rclone.1
+
+[restic]
+    url = restic/restic
+    bin = --to restic
+    cmd = chmod 755 restic
+
+[rg]
+    url = BurntSushi/ripgrep
+    man = -f rg.1
+
+[sops]
+    url = getsops/sops
+    opt = -a amd64 -a ^sbom.json
+    bin = --to sops
+    cmd = chmod 755 sops
+
+[syncthing]
+    # sometimes you don't actually know the URL and have to parse something
+    # else to get it...
+    pre = wget -O - https://syncthing.net/downloads/ | htmlq a -a href | grep linux-amd64
+    url = dummy # output of "pre" will become the URL
+    bin = -f '*/syncthing'
+
+[teip]
+    url = greymd/teip
+    opt = -a musl.tar
+    bin = -f bin/teip
+    man = -f man/teip.1
+
+[vifm]
+    url = vifm/vifm
+    opt = -a AppImage -a ^zsync
+    bin = --to vifm
+    # AppImage does not come with chmod +x
+    cmd = chmod 755 vifm
+
+[watchexec]
+    url = watchexec/watchexec
+    opt = -a musl.tar -a ^musl.tar.xz.
+    man = -f watchexec.1
+
+[yt-dlp]
+    url = yt-dlp/yt-dlp
+    opt = -a ^aarch64 -a ^armv7l
+    bin = --to yt-dlp
+    # WARNING: this has a very slow start (a large python tool converted into
+    # a 27 MB executable, duh!) so don't put it inside a tight loop :)
+
+[zbarimg]
+    pkg = zbar-tools
+
+# ---- perl ------------------------------------------------------------
+# perl-App-cpanminus
+# perl-BSD-Resource
+# perl-Carp
+# perl-Config-Simple
+# perl-Data-Dumper
+# perl-DBD-SQLite
+# perl-DBI
+# perl-DBM-Deep
+# perl-Digest-MD5
+# perl-Digest-SHA
+# perl-File-Path
+# perl-File-Temp
+# perl-Getopt-Long
+# perl-JSON
+# perl-JSON-XS
+# perl-libwww
+# perl-LWP-Protocol-https
+# perl-MIME-Base32
+# perl-MIME-Base64
+# perl-MIME-tools
+# perl-Net-LDAP
+# perl-Net-LDAP-Constant
+# perl-Net-LDAP-Control-Paged
+# perl-Redis
+# perl-Storable
+# perl-Test-Harness
+# perl-Text-CSV*
+# perl-Text-ParseWords
+# perl-Time-HiRes
+# perl-Time-ParseDate
+# perl-XML-Parser
+
+# ---- WATCHLIST OF POSSIBLY USEFUL TOOLS ------------------------------
+
+# https://github.com/TekWizely/run -- if our __ gets annoying
+#   -   supports `export RUNFILE_ROOTS=/home/ff ;export RUNFILE=.runfile` to
+#       make search behave like out __ (I bugged him to fix it)
+#       -   note that RUNFILE_ROOTS is weird; any value other than $HOME will
+#           stop the search one level below
+#   -   easy options management (incl default options) using ENV vars
+#   -   easy help messages
+#   -   assertions!
+#   -   snippets can be other languages also, not just shell
+#   -   XXX: hardly any activity after he fixed my issue (https://github.com/TekWizely/run/issues/67)
+#   -   XXX: MAJOR DOWNSIDE: STOPS AFTER FINDING THE FIRST RUNFILE; may need
+#       to INCLUDE ~/.runfile (at least) in each one
+#       -   but the include mechanism is weak; need to supply full path!
+#   -   some case sensitivity issues (behaviour is complex)

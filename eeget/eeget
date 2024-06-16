@@ -1,0 +1,162 @@
+#!/bin/bash
+export PS4='`[[ $? == 0 ]] || echo "\e[1;31;40m($?)\e[m\n "`:.$LINENO:'
+die() { echo >&2 "$*"; exit 1; }
+# set -x; x() { "$@"; }
+x() { set -x; "$@"; { set +x; } 2>/dev/null; }
+
+# The original reason I wrote this script was eget's inability to get the
+# binary *and* the man page in one shot without downloading the file yourself
+# and running eget against *that*.  Then I expanded it to be my all-in-one
+# installer for "new systems".
+
+# Look at the config file also, to get a better understanding of what this
+# tool does for me.
+
+# ----------------------------------------------------------------------
+
+CONF=/root/.config/eegetconf
+TMPD="/tmp/eeget.$USER"
+rm -rf   "$TMPD"
+mkdir -p "$TMPD"
+
+umask 022
+
+# ----------------------------------------------------------------------
+
+main() {
+
+    setup_dirs
+    cd $bins
+
+    # if there are no arguments, list the tags available
+    [[ -z $1 ]] && {
+        grep -e '##' < $CONF | perl -p -e 's/^ *## ?//' | grep --color -e '^' -e TODO
+        echo; echo "You can get individual lists by running 'eeget list TAGNAME'"
+        exit
+    }
+    # or get the values for a tag
+    [[ $1 == list ]] && {
+        _get tags $2;
+        exit
+    }
+
+    # before any actual downloads happen, we need to get "eget" the long way
+    # the first time (and *only* the first time)
+    get_eget
+
+    # if there is a single argument, and it starts with "tag", then get that list
+    # else it's whatever is in the args
+    [[ -z $2 && $1 =~ ^tag- ]] && list=$(_get tags $1) || list="$*"
+
+    for tool in $list; do
+        # don't waste time if it's less than a month old
+        recent $tool && { _log "OK $tool"; continue; }
+
+        # if there is a package name, get it first (defaults to tool-name)
+        pkg=$(_get $tool pkg || echo $tool)
+
+        # get a url (full http or eget-style "foo/bar") to download?
+        url=$(_get $tool url)
+        [[ -z $url ]] && { _log "DISTRO $pkg"; continue; }
+        # these "DISTRO" lines can be used by some other script to install using distro package tools
+
+        _log "FETCH $tool"
+
+        # opt is options for eget
+        opt=$(_get $tool opt || echo "")
+        # pre is a "pre-" command that *generates* a URL (typically by parsing
+        # a webpage); in such cases the url above would be a dummy placeholder
+        pre=$(_get $tool pre || echo "")
+        # cmd is a "post-" command to run *after* the download is done;
+        # usually just chmod +x when the url downloads an appimage, but could
+        # be more (see firefox entry for a more complicated example)
+        cmd=$(_get $tool cmd || echo "")
+
+        # note that the next two may have multiple values (e.g., age package
+        # has "age" and "age-keygen").
+        # bin is of course the binary, man is a man page
+        bin=$(_get $tool bin || echo "-f $tool")
+        man=$(_get $tool man || echo "")
+
+        # get the tar, zip, or whatever and put it in a temp dir; grab its name into "$tarfile"
+        cd $TMPD
+        # "pre", if defined, is a way of getting the required URL itself (e.g., see syncthing in the conf file)
+        [[ -n $pre ]] && url=$(eval $pre)
+        if [[ $url =~ http ]]; then
+            wget -nv $url
+        else
+            # using "-d" is more efficient when you need to extract multiple
+            # files (either multiple binaries like for `age`, or binary + man
+            # page).  To keep things simple we always use this.
+            x eget $opt -d $url
+        fi
+        tarfile=`ls -trc | tail -1`
+        # (we say "tarfile" but keep in mind it could be a zip or something else)
+        [[ -s $tarfile ]] || die "'$tarfile' is empty?"
+        # eget can't handle "xz"
+        [[ $tarfile =~ .xz$ ]] && xz -d < $tarfile > $tarfile.tar && tarfile=$tarfile.tar
+        cd -
+
+        # remember we can have > 1 binaries and man pages (e.g., "age" gives
+        # you "age" and "age-keygen"); this is why we simply download the
+        # tarfile rather than run multiple eget commands against the remote.
+
+        saveIFS="$IFS"; IFS=$'\n'       # can you tell I hate bash arrays? :)
+        for b in $bin; do
+            x eval eget $b $TMPD/$tarfile
+        done
+        for m in $man; do
+            x eval eget $m $TMPD/$tarfile
+        done
+        IFS="$saveIFS"
+
+        # execute any post-processing commands specified (typically `chmod 755` etc)
+        [[ -n $cmd ]] && eval $cmd
+
+        _log ""
+    done
+
+    # final fixups
+    ( find . -type f | xargs file | grep "not stripped" | cut -f1 -d: | xargs -r strip )
+    ( chmod 644 *.1; mv *.1 $mans ) 2>/dev/null # silent in case there are no man pages to move
+    true
+}
+
+# ----------------------------------------------------------------------
+
+_log() {
+    echo "$@"
+}
+
+# in most real-world situations, this actually runs exactly once, but *shrug*
+setup_dirs() {
+    eval "`git config -f $CONF -l | grep '^dirs.dir' | sed -e 's/dirs.dir.//'`"
+    mkdir -p $bins $mans
+}
+
+# same as "setup_dirs" above; runs exactly once on any real-world install
+get_eget() {
+    [[ -f $bins/eget ]] || {
+        TAG=$(
+            curl -s https://api.github.com/repos/zyedidia/eget/releases/latest |
+            grep "tag_name" |
+            cut -d'"' -f4
+        )
+        VER=${TAG:1}
+        (cd /tmp; wget -nv https://github.com/zyedidia/eget/releases/download/$TAG/eget-$VER-linux_amd64.tar.gz)
+        tar --wildcards --strip-components=1 -xvf /tmp/eget-$VER-linux_amd64.tar.gz '*/eget'
+        rm -v /tmp/eget-$VER-linux_amd64.tar.gz
+    }
+}
+
+_get() {
+    git config -f $CONF --get-all $1.$2
+}
+
+recent() {
+    [[ -n $FORCE ]] && return 1
+    [[ -x "$(command -v $1)" ]] && return 0
+    find $BINS -iname "$1" -mtime -31 | grep -i "/$1" > /dev/null
+}
+
+main "$@"
