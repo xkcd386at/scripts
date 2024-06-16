@@ -1,5 +1,10 @@
 #!/bin/bash
 
+OBSOLETE
+--------
+
+I am not using this any more.  Please do read the WHY section below for the original motivation.  However, after some years of doing this I realised that I rarely, if ever, run more than one such private browser at once, so it seems sufficient to relegate them *all* to a secondary userid and run them from there.  Code for that is in the new "usff" to be added here soon.
+
 shopt -s inherit_errexit
 set -euo pipefail
 IFS=$'\n\t'
