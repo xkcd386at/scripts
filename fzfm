@@ -83,6 +83,8 @@ Keys that act on the current file/dir:
 
 Keys that act on the selection (or current file/dir if no selections were made):
 
+    ctrl-e                      edit selected files (VISUAL or EDITOR or vim)
+
     ctrl-d                      delete selected files/dirs files using "rm -ir"
                                 note the "-i"
     ctrl-alt-d                  same, but using "rm -r".  It takes 3
@@ -173,6 +175,12 @@ my $query = '';
 ($ARGV[0]||'') eq '--internal-key-?' and help();
 ($ARGV[0]||'') eq '--internal-key-alt-?' and readme();
 ($ARGV[0]||'') eq '--internal-key-alt-s' and shell();
+
+if ( ($ARGV[0]||'') eq '--internal-key-ctrl-e' ) {
+    shift;
+    system($ENV{VISUAL} || $ENV{EDITOR} || "gvim", @ARGV);
+    exit;
+}
 
 if ( ($ARGV[0]||'') eq '--internal-key-ctrl-d' ) {
     shift;
@@ -302,6 +310,9 @@ sub show {
         "--bind", "alt-s:execute($fzfm > $tty 2>&1 --internal-key-alt-s)",
         "--bind", "ctrl-x:execute($fzfm > $tty 2>&1 --internal-key-ctrl-x {+})",
         "--bind", "enter:execute($fzfm > $tty 2>&1 --internal-key-enter {})",
+
+        # edit files
+        "--bind", "ctrl-e:execute($fzfm > $tty 2>&1 --internal-key-ctrl-e {+})",
 
         # delete files
         "--bind", "ctrl-d:execute($fzfm > $tty 2>&1 --internal-key-ctrl-d {+})",
