@@ -11,6 +11,7 @@ Of course, there *is* a Linux section, though as of 2022-11-09 it has only one e
 # what is in scope
 
 -   I arbitrarily picked Jan 1, 2022 as the earliest I will go.
+-   (Update: I stopped working on this in early 2023, so you could say this data is for the full year 2022.  If you do a similar exercise for later years, please post a link to reddit's /r/linux; I'm pretty sure the overall trend will continue to be similar.)
 -   I include vulnerabilities for which an "in the wild" attack has happened or was suspected to have happened at some point *before* a patch became available.
 -   I exclude vulnerabilities (regardless of severity) that were exploited *after* a patch became available (for instance, because people failed to upgrade).
 -   For Windows, I also ignore ancillary products like Exchange, IE/Edge, MS Office, etc.
