@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+$ENV{SHELL} = "/bin/bash";
 
 # yet another "hmm, what else can I do with fzf" proof-of-concept program!
 
