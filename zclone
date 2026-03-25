@@ -33,6 +33,9 @@ usage() {
 	-   rclone does NOT handle metadata for directories, only files (even that
 	    only when the -M flag is used); do not use to copy "system" files
 
+	(Also, "--create-empty-src-dirs" should really be optional, but for now
+	we're forcing it in all cases.)
+
 	EOF
     exit 1
 }
@@ -44,14 +47,15 @@ usage() {
 bindf1="--bind=f1:execute(exec > /dev/tty ; exec 2>&1 zclone | less -c)"
 
 # ----------------------------------------------------------------------
+# 2025-04-06 add "-l" to "lsf" (and remove "--skip-links")
 
 get_source_paths() {
     export FZF_DEFAULT_OPTS="--exact --no-sort --reverse --info=inline --multi"
 
-    bindd="--bind=ctrl-d:reload(rclone lsf -R --dirs-only  \"$1\")"
-    bindf="--bind=ctrl-f:reload(rclone lsf -R --files-only \"$1\")"
+    bindd="--bind=ctrl-d:reload(rclone lsf -R -l --dirs-only  \"$1\")"
+    bindf="--bind=ctrl-f:reload(rclone lsf -R -l --files-only \"$1\")"
     h=$(printf "$header" "$1")
-    rclone lsf -R --skip-links --dirs-only "$1" |
+    rclone lsf -R -l --dirs-only "$1" |
         fzf "$bindf1" "$bindd" "$bindf" --expect 'esc,ctrl-r,ctrl-t,ctrl-c' --bind 'ctrl-a:select-all' --header "$h"
 }
 
@@ -101,7 +105,10 @@ done
 
 for i in "${sources[@]}"; do echo "(s=$i)"; done
 [[ ${sources[0]} == ctrl-c ]] && exit
-[[ ${sources[0]} == ctrl-t ]] && sources=("" "$1")
+[[ ${sources[0]} == ctrl-t ]] && sources=("" "**")
+    #                                         ^^
+    # was $1, Ahen $1/, then ./
+    # if you change it, make sure to test with top level as well as sub-dirs
 [[ ${sources[1]} =~ ^$     ]] && exit
 
 # ----------------------------------------------------------------------
@@ -119,8 +126,9 @@ readarray -t dest < <(get_dest_path $DEST)
 [[ ${dest[0]} == ctrl-t ]] && DEST="$DEST" || DEST="$DEST/${dest[1]}"
 
 # ----------------------------------------------------------------------
+# 2025-04-06 "-l" again
 
 printf "%s\n" "${sources[@]:1}" |
     sed -e 's,/$,/**,' |
     tee >(cat >&2) |
-    { set -x; rclone $op --stats 100ms -P --include-from=- --create-empty-src-dirs "$1" "$DEST"; }
+    { set -x; rclone $op --stats 100ms -P --include-from=- --create-empty-src-dirs -l "$1" "$DEST"; }
