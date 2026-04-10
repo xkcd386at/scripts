@@ -2,7 +2,8 @@
 
 # vgc -- rg with context on STDIN on $PWD, with help
 # usage: pipe | vgc pattern
-#    OR just:   vgc pattern
+#    OR just:   vgc pattern [optional list of paths to search]
+# optional N (single digit) *before* the pattern; default 5
 
 # set -x
 export PS4=':.$LINENO:'
@@ -24,14 +25,15 @@ export PS4=':.$LINENO:'
 # ----------------------------------------------------------------------
 # main
 
-q="$1"
 c=5
+[[ $1 =~ ^[1-9]$ ]] && c=$1 && shift
+q="$1"; shift
 
 _vgc () {
     : "c is for context"
     : "change the query and hit enter to restart with the new query string"
     : "starts with a context of 5; type a number and hit enter to change it (query string will revert to $1)"
-    rg -n -C$c "$q" |
+    rg -n -C$c "$q" "$@" |
         perl -pe 's/^--\n/\0/' |
         fzf \
             -q "$q" \
@@ -39,10 +41,10 @@ _vgc () {
             --preview-window=wrap:top:75% \
             --preview="echo {} | $0 --preview {q}" \
             --print-query \
-            --expect "enter,esc,ctrl-e" \
-            --header "enter to accept new query and restart
-escape to exit without doing anything
-ctrl-e to exit and open vim quickfix list"
+            --expect "enter,esc,ctrl-c,ctrl-n" \
+            --header "ctrl-n to accept new query and restart
+escape or ctrl-c to exit without doing anything
+enter to open vim quickfix list with selected entries"
 }
 
 [[ -t 0 ]] || {
@@ -54,7 +56,7 @@ ctrl-e to exit and open vim quickfix list"
 
 while :; do
     if [[ -t 0 ]]; then
-        r=$(_vgc)                       # assumed search all of PWD
+        r=$(_vgc "$@")      # search PWD if nothing specified
     else
         r=$(cat $VGCTMPF | _vgc)
     fi
@@ -63,9 +65,10 @@ while :; do
     [[ $newq =~ ^[1-9][0-9]*$ ]] && c=$newq || q="$newq"
 
     k=$(echo "$r" | sed -ne '2p')
-    [[ $k == esc ]] && exit             # user hit esc, exit
-    [[ $k == enter ]] && continue       # user hit enter, loop
-    [[ $k == ctrl-e ]] && {             # user hit ctrl-e, open vim quickfix list
+    [[ $k == esc ]]    && exit          # user hit esc, exit
+    [[ $k == ctrl-c ]] && exit          # user hit esc, exit
+    [[ $k == ctrl-n ]] && continue      # user hit ctrl-n, loop
+    [[ $k == enter  ]] && {             # user hit enter, open vim quickfix list
         # make a vim search pattern out of the first line of $x (which is the "query",
         # due to using "--print-query" in the fzf command)
         q=$(echo "$r" | head -1 | tr ' ' '|')
@@ -73,10 +76,11 @@ while :; do
         if [[ -t 0 ]]; then
             # start vim with the quickfix list set to "$r".  \v is "very
             # magic"; allows '|' to act as alternation in regex
-            vim -q <(echo "$r"|tail +2|grep -E ":[0-9]+:") -c copen -c "let @/='\v$q'"
+            vim -q <(echo "$r"|tail -n +2|grep -E ":[0-9]+:") -c copen -c "let @/='\v$q'"
         else
             # stdin was a pipe
-            echo "$r"|tail +3
+            echo "$r"|tail -n +3
+            break
         fi
     }
 done

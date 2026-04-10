@@ -37,8 +37,8 @@ dir renames.
 
 _b3() (
     cd $1
-    find . -type f -print0 |
-        xargs -0 b3sum -l 16 |
+    find . -type f |
+        xxh128sum --filelist - |
         sed -e 's/  /\t/' -e 's/\t\.\//\t'$2'\//' |
         sort
 )
