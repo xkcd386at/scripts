@@ -1,0 +1,196 @@
+# editor choice and "veganism"
+
+**This article was written by a human with decades of coding under his belt, and absolutely no AI involved at any stage.**
+
+I wrote this because I started to worry about newbies being misled into thinking:
+
+-   it's **always** OK to use a basic editor like nano (it's not *always* OK; see below)
+-   even if you're using a more powerful editor, it's OK to be a "vegan" about it, avoiding plugins and even a basic config sometimes (it's not; again, details below).
+
+## part 1: is nano enough?
+
+**TLDR**: if your editing needs are simple, e.g., a few times a day, one or two files at a time requiring minor changes, then use whatever editor you are comfortable with.  Absolutely no argument there.
+
+**But...** if you often edit multiple related files, make complex or *repetitive* edits, develop code, etc., then you owe it to yourself to learn a proper editor.  For me, that editor is vim.  If that's emacs for you, more power to you.  Just please don't stop at `nano`!
+
+What would be a complex or repetitive edit?  Some examples I can think of:
+
+-   make the same change in multiple lines
+-   same, but not in all occurrences
+-   comment out all lines containing a specific string
+-   increment all numbers in a set of lines
+-   and of course develop any non-trivial code, fix bugs, dig into an unfamiliar codebase looking for something, ...
+
+and so on
+
+## part 2: "vegan" masochism
+
+As I said, there are people who prefer to use vim with no plugins.  Even worse, some of them claim not to use even a vimrc, or use the bare minimum of settings.
+
+In my experience, using barebones vim is an important skill if you're a consultant who frequently has to do **short-term work on other people's computers**.  Been there, done that.
+
+But this is not a good thing to do on machines where you have to work **long term**.  I'll try to describe some "essentials" below.
+
+[The "masochism" part comes from a recent interaction I had with someone; a summary is in an appendix at the bottom.]
+
+### fzf related settings
+
+The `fzf` program has lots of fans.  Though several similar tools exist, this one is pretty much the gold standard, because none of the others (AFAIK) have spent time integrating deeply with vim.
+
+These are absolutely my most often used maps.  `Alt-h` and `Alt-f` are at the top for picking *files*, while `Alt-r` and `Alt-l` are for finding by content.
+
+(To use them, install `fzf` and `ripgrep` to your system.  Then install two plugins to your vim: (1) https://github.com/junegunn/fzf and (2) https://github.com/junegunn/fzf.vim).
+
+```vim
+" Alt-b: when you've opened several files, switch between them easily
+nmap <Esc>b     :Buffers<CR>
+" Alt-h: pick a file from the files that vim knows I have recently
+" edited
+nmap <Esc>h     :History!<CR>
+" Alt-f: pick a file from anywhere, any depth, in the current
+" directory
+nmap <Esc>f     :Files!<CR>
+
+" all the "Alt-r" keymaps below open up a ripgrep-sourced fzf chooser,
+" with preview, of all matches in the current directory, for whatever
+" word is being searched for.  You can then select any number of items
+" in that list (using `TAB`), and when you hit enter, they will open
+" up in a vim quickfix list.
+
+" Alt-r: search for current word under the cursor.
+nmap <Esc>r     :Rg! <C-R><C-W><CR>
+
+" Alt-r in "command mode": search for current "search" string.  In
+" other words, if you have just searched for a word in the current
+" file, this expands the search to all files in the current directory.
+" To use this, type "/", *then* Alt-r.
+cmap <Esc>r     <BS>:Rg! <C-R>/<CR>
+
+" Alt-r in "visual mode": search for the current visual selection
+vmap <Esc>r     "vy:let @/=@v<CR>:Rg! <C-R>/<CR>| " make a visual selection, then alt-r
+
+" Alt-l: search for the word under the cursor in all files already
+" loaded.
+nmap <Esc>l     :Lines! <C-R><C-W><CR>
+
+" set fzf's preview window to be full width, below the chooser, with
+" Ctrl-/ to toggle it if needed.
+let g:fzf_vim = {}
+let g:fzf_vim.preview_window = ['down,50%', 'ctrl-/']
+```
+
+### essential "pure vim" settings
+
+Here are some essentials from my `~/.vimrc`:
+
+-   `formatoptions+=nj`, `autoindent`, `smartindent`, `expandtab`, ...
+
+    I write just as much markdown (i.e., documentation or similar) as code, so these are all useful to write narrative text, and format/indent it to be readable as plain text also.  If you only write code the defaults are probabaly fine (but I recommend at least `formatoptions+=j` to help with editing comments in your code).
+
+    Just to be clear, what we are talking about here is
+
+    -   the smooth flow of writing, without having to constantly worry about indentation, when writing narrative text
+    -   being able to make wholesale changes to existing text (whether it is comments in code or markdown style documentation) and have it be indented/reflowed properly.
+
+-   `hidden`
+
+    This is easily one of the most important features.  Without this, if you're editing multiple files, you have to either save each one before moving to the next, or keep unsaved files visible on screen in split windows.  That gets annoying because it's limited by your screen size.  More importantly, when making a change that impacts several files, I often jump around between the files, and save+exit when it's all done (`:xa`).  Having to save in between is *not* what I want.  (That may be simply be a preference, or it may even be necessary in some situations).
+
+-   `hlsearch` and `incsearch`
+
+    Very useful, but more "quality of life" than "critical".  When you search for something, it gets highlighted.
+
+-   `smartcase`
+
+    IMO this should be default.  Smartcase works like `ignorecase` if your search string has only lowercase letters, and like `noignorecase` if it has any uppercase characters in it.
+
+-   `syntax on`
+
+    I can't count the number of times this has saved me time.  It's not a disaster if you don't have it, but it's good to be able to see where you may have missed a closing quote, or used the wrong syntax, or whatever.
+
+-   folding
+
+    Folding (hiding away lines that are not of interest) is a matter of taste; I find it useful, you might not.  For code, I find it's simplest to differentiate lines of zero indentation (i.e., no leading blanks) from all others; it seems to work well enough for most languages.  The settings I use are:
+
+    ```vim
+    set foldmethod=indent
+    set foldlevel=0
+    set foldnestmax=1
+    nmap     <C-J> zjzxzz
+    nnoremap <C-K> zkzx[zzz
+    nmap     _     :set foldenable!<CR>
+    ```
+
+    Try it with any program in most recent languages, written in a conventional style.  Use Ctrl-J/K to move down/up, and hit `_` to toggle folds (when you want to see all the lines).
+
+### some useful key maps
+
+The rest of my settings are mostly keymaps, which over the years have become muscle memory.  I will show some of them, but do understand that these are only for illustration.  If you want to use them, the left hand side (the key sequence being mapped) is your choice -- you don't have to use the same one I use.
+
+```vim
+" I often work on a smaller screen, and it's nice to quickly toggle
+" wrapping
+nmap <F2>       :set wrap!<CR>
+" exit quickly
+nmap <F3>       :qa<CR>
+nmap <F10>      :xa<CR>
+" next and previous file, when editing multiple files
+nmap <F7>       :Next<CR>
+nmap <F8>       :next<CR>
+" alt-w to switch windows
+nmap <Esc>w     <C-W><C-W>
+" I often have to enter the current date (YYYY-MM-DD); just type "dt"
+iabbrev dt <C-R>=strftime("%F")<CR>
+" and sometimes I need the day (Sun, Mon, Tue, etc), plus HH:MM also
+iabbrev dta <C-R>=strftime("%F %a %H:%M")<CR>
+" you won't believe how often I have to type yesterday's date because
+" I forgot to log something yesterday :)
+iabbrev dty <C-R>=strftime("%F", localtime()-24*60*60)<CR>
+
+" restore cursor to position it was in when you last edited this file.
+" (You probably saw this in hundreds of blog posts.  Honestly, vim
+" needs a simple setting for this, instead of making it this
+" complicated!)
+augroup resCur
+    au!
+    au  BufWinEnter  *  silent! normal! g`"zv
+augroup END
+
+" when a quickfix list is created, I want it to open immediately, and
+" map F7/F8 to go up/down in the list
+augroup qf
+    au!
+    " global autocommands for qf, including ][ maps
+    au  filetype                qf          nnoremap <F7> :cprevious<CR>zv| nnoremap <F8> :cnext<CR>zv
+    au  QuickFixCmdPost         *grep*      cwindow
+augroup END
+```
+
+## appendix: the fallacious logic and masochism of one "vegan"
+
+Someone posted a link to his/her blog post about being minimal, and we got into a discussion.  His/her big point was that plugins like `fzf.vim` hang when the codebase is huge.
+
+This is how the discussion progressed (in essence):
+
+-   first, he said that fzf etc hang on huge codebases
+-   this is true, but his example used the entire filesystem
+-   I told him that is a contrived, unrealistic, example, and besides, fzf.vim's `:Locate` works like a charm
+-   so then he brought up monorepos, and claimed that running `updatedb` every time he switched branches is infeasible.  He also, very kindly, mentioned that `git ls-files` is a better source than locate.
+-   fair enough, so I told him fzf.vim has `:GFiles` that uses exactly that so what's his problem?
+
+In sum, his argument appears to be "minimalism for the sake of minimalism", despite clear disadvantages **that he acknowledges**, as evidenced by the following quotes from his last comment (emphasis mine, and indented comments mine):
+
+<!-- https://old.reddit.com/r/vim/comments/1sk2wn2/clean_vim_showcase/ohvt77w/ -->
+
+>   -   I stated from the start that fuzzy finders are faster if number of files is not too big.  
+>       -   (*And I proved that there is no "too big", later, yet he repeats this non-point*)  
+>   -   I'm just already used to the defaults so I don't need anything more **even if it's better**  
+>   -   I **don't mind extra typing** and I like the precision :e gives.  
+>       -   (*How the hell is fzf imprecise?  When names are too similar it even shows you a preview so you can figure out which one you want!*)  
+>   -   To me there is more satisfaction in trying to use less stuff than to use more **even if it's slightly better**  
+>   -   I also like the fact that I'm not dependent on additional plugin and executable  
+>       -   (*This makes sense if you **frequently** have to do one-off work on other people's computers, otherwise it makes no sense*)  
+>       -   (*He works on monorepos.  Trust me that does not happen as a "one-off" on someone else's machine!*)  
+
+I have rarely seen so much masochism on a tech sub.  I don't care about this guy, but I do care that he's spreading this fallacious logic.  He admits, when forced into a discussion, that the alternatives *are* better, but his blog post is not saying that, and that is what people will see.
+
